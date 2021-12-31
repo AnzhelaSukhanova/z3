@@ -63,7 +63,7 @@ public:
     }
 
     void updt_params(params_ref const & p) override {
-        m_params = p;
+		m_params.append(p);
 		tactic_params tp(p);
 		m_to_file  = p.get_bool("to_file", tp.collect_statistics_to_file());
     }
