@@ -75,9 +75,9 @@ static inline void open_trace() {}
 static inline void finalize_trace() {}
 #endif
 
-#define TRACEH(TAG)  tout << "-------- [" << TAG << "] " << __FUNCTION__ << " " << __FILE__ << ":" << __LINE__ << " ---------\n"
+#define TRACEH(TAG)  tout  << __FUNCTION__ << " " << __FILE__ << ":" << __LINE__ << "\n"
 #define TRACEEND tout << "------------------------------------------------\n"
-#define TRACEBODY(TAG, CODE) TRACEH(TAG); CODE; TRACEEND; tout.flush()
+#define TRACEBODY(TAG, CODE) TRACEH(TAG); tout.flush()
 #define STRACEBODY(CODE) CODE; tout.flush()
 
 #define TRACE(TAG, CODE) TRACE_CODE(if (is_trace_enabled(TAG)) { THREAD_LOCK(TRACEBODY(TAG, CODE)); })

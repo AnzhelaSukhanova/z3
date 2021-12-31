@@ -39,9 +39,7 @@ bool assertions_enabled();
 #endif
 #endif
 
-#ifdef __EMSCRIPTEN__
 #define NO_Z3_DEBUGGER
-#endif
 
 #ifdef NO_Z3_DEBUGGER
 #define INVOKE_DEBUGGER() exit(ERR_INTERNAL_FATAL)
@@ -66,7 +64,7 @@ bool is_debug_enabled(const char * tag);
 #ifdef Z3DEBUG
 # define UNREACHABLE() DEBUG_CODE(notify_assertion_violation(__FILE__, __LINE__, "UNEXPECTED CODE WAS REACHED."); INVOKE_DEBUGGER();)
 #else
-# define UNREACHABLE() { notify_assertion_violation(__FILE__, __LINE__, "UNEXPECTED CODE WAS REACHED."); exit(ERR_UNREACHABLE); } ((void) 0)
+# define UNREACHABLE() { notify_assertion_violation(__FILE__, __LINE__, "UNEXPECTED CODE WAS REACHED."); } ((void) 0)
 #endif
 
 #ifdef Z3DEBUG
@@ -77,7 +75,7 @@ bool is_debug_enabled(const char * tag);
 
 #define VERIFY(_x_) if (!(_x_)) {                                                       \
         notify_assertion_violation(__FILE__, __LINE__, "Failed to verify: " #_x_ "\n"); \
-        exit(ERR_UNREACHABLE);                                                          \
+                                                                 \
     }                                                           
 
 #define ENSURE(_x_) VERIFY(_x_)
