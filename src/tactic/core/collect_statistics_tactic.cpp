@@ -29,8 +29,10 @@ Notes:
 #include "ast/fpa_decl_plugin.h"
 #include "tactic/tactical.h"
 #include "util/stats.h"
+#include "tactic/tactic_params.hpp"
 
 #include "tactic/core/collect_statistics_tactic.h"
+
 
 class collect_statistics_tactic : public tactic {
     ast_manager &        m;
@@ -41,6 +43,7 @@ class collect_statistics_tactic : public tactic {
     bv_decl_plugin       m_bv_pi;
     datatype_decl_plugin m_datatype_pi;
     fpa_decl_plugin      m_fpa_pi;
+	bool                 m_to_file;
 
     typedef std::map<std::string, unsigned long> stats_type;
     stats_type m_stats;
@@ -60,10 +63,14 @@ public:
     }
 
     void updt_params(params_ref const & p) override {
-        m_params.append(p);
+        m_params = p;
+		tactic_params tp(p);
+		m_to_file  = p.get_bool("to_file", tp.collect_statistics_to_file());
     }
 
-    void collect_param_descrs(param_descrs & r) override {}
+    void collect_param_descrs(param_descrs & r) override {
+		r.insert("to_file", CPK_BOOL, "(default: false) writes statistics to the file.");
+	}
 
     void operator()(goal_ref const & g, goal_ref_buffer & result) override {
         tactic_report report("collect-statistics", *g);
@@ -74,10 +81,26 @@ public:
         for (unsigned i = 0; i < sz; i++)
             for_each_expr(cp, visited, g->form(i));
 
-        std::cout << "(" << std::endl;
-        for (auto const& kv : m_stats) 
-            std::cout << " :" << kv.first << "    " << kv.second << std::endl;
-        std::cout << ")" << std::endl;
+		if (m_to_file) {
+			std::ofstream sout(".collect_stats.json");
+
+			sout << "{";
+			const auto& lastKey = m_stats.rbegin()->first;
+        	for (auto const& kv : m_stats) {
+            	sout << "\"" << kv.first << "\": " << kv.second;
+				if (kv.first != lastKey)
+        			sout << ", \n";
+			}
+        	sout << "}\n";
+
+			sout.close();
+		}
+		else {
+			std::cout << "(" << std::endl;
+        	for (auto const& kv : m_stats)
+            	std::cout << " :" << kv.first << "    " << kv.second << std::endl;
+        	std::cout << ")" << std::endl;
+		}
 
         g->inc_depth();
         result.push_back(g.get());
@@ -201,3 +224,4 @@ protected:
 tactic * mk_collect_statistics_tactic(ast_manager & m, params_ref const & p) {
     return clean(alloc(collect_statistics_tactic, m, p));
 }
+
