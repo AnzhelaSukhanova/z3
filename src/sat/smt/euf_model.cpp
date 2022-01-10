@@ -35,7 +35,7 @@ namespace euf {
             s(s), m(s.m), mdl(mdl), values(values), factory(m) {}
 
         ~user_sort() {
-            for (auto kv : sort2values)
+            for (auto const& kv : sort2values)
                 mdl->register_usort(kv.m_key, kv.m_value->size(), kv.m_value->data());
         }
 
@@ -161,10 +161,9 @@ namespace euf {
                 default:
                     break;
                 }
-                if (is_app(e) && to_app(e)->get_family_id() == m.get_basic_family_id())
-                    continue;
                 sat::bool_var v = get_enode(e)->bool_var();
-                SASSERT(v != sat::null_bool_var);
+                if (v == sat::null_bool_var)
+                    continue;
                 switch (s().value(v)) {
                 case l_true:
                     m_values.set(id, m.mk_true());
@@ -200,6 +199,8 @@ namespace euf {
             expr* e = n->get_expr();
             if (!is_app(e))
                 continue;
+            if (!is_relevant(n))
+                continue;
             app* a = to_app(e);
             func_decl* f = a->get_decl();       
             if (!include_func_interp(f))
@@ -224,7 +225,7 @@ namespace euf {
                     enode* earg = get_enode(arg); 
                     expr* val = m_values.get(earg->get_root_id());
                     args.push_back(val);                
-                    CTRACE("euf", !val, tout << "no value for " << bpp(earg) << "\n";);
+                    CTRACE("euf", !val, tout << "no value for " << bpp(earg) << "\n" << bpp(n) << "\n"; display(tout););
                     SASSERT(val);
                 }
                 SASSERT(args.size() == arity);
@@ -259,7 +260,7 @@ namespace euf {
             if (n->is_root() && m_values.get(n->get_expr_id()))
                 m_values2root.insert(m_values.get(n->get_expr_id()), n);
         TRACE("model", 
-              for (auto kv : m_values2root) 
+              for (auto const& kv : m_values2root) 
                   tout << mk_bounded_pp(kv.m_key, m) << "\n    -> " << bpp(kv.m_value) << "\n";);
         
         return m_values2root;
@@ -298,6 +299,8 @@ namespace euf {
         ev.set_model_completion(true);
         TRACE("model",
             for (enode* n : m_egraph.nodes()) {
+                if (!is_relevant(n))
+                    continue;
                 unsigned id = n->get_root_id();
                 expr* val = m_values.get(id, nullptr);
                 if (!val)

@@ -296,10 +296,10 @@ namespace euf {
     }
 
     void solver::asserted(literal l) {
-        if (m_relevancy.enabled() && !m_relevancy.is_relevant(l)) {
-            m_relevancy.asserted(l);
-            return;
-        }
+
+        m_relevancy.asserted(l);
+        if (!m_relevancy.is_relevant(l))
+            return;        
 
         expr* e = m_bool_var2expr.get(l.var(), nullptr);
         TRACE("euf", tout << "asserted: " << l << "@" << s().scope_lvl() << " := " << mk_bounded_pp(e, m) << "\n";);
@@ -477,9 +477,6 @@ namespace euf {
 
         if (unit_propagate())
             return sat::check_result::CR_CONTINUE;
-
-        if (!init_relevancy())
-            give_up = true;    
         
         unsigned num_nodes = m_egraph.num_nodes();
         auto apply_solver = [&](th_solver* e) {
@@ -544,9 +541,7 @@ namespace euf {
         for (auto* e : m_solvers)
             e->push();
         m_egraph.push();
-        if (m_dual_solver)
-            m_dual_solver->push();
-        push_relevant();
+        m_relevancy.push();
     }
 
     void solver::pop(unsigned n) {
@@ -556,7 +551,7 @@ namespace euf {
             e->pop(n);
         si.pop(n);
         m_egraph.pop(n);
-        pop_relevant(n);
+        m_relevancy.pop(n);
         scope const & sc = m_scopes[m_scopes.size() - n];
         for (unsigned i = m_var_trail.size(); i-- > sc.m_var_lim; ) {
             bool_var v = m_var_trail[i];
@@ -565,8 +560,6 @@ namespace euf {
         }
         m_var_trail.shrink(sc.m_var_lim);        
         m_scopes.shrink(m_scopes.size() - n);
-        if (m_dual_solver)
-            m_dual_solver->pop(n);
         SASSERT(m_egraph.num_scopes() == m_scopes.size());
         TRACE("euf_verbose", display(tout << "pop to: " << m_scopes.size() << "\n"););
     }
@@ -739,14 +732,33 @@ namespace euf {
         }
     }
 
+    bool solver::is_relevant(bool_var v) const {
+        if (m_relevancy.enabled())
+            return m_relevancy.is_relevant(v);
+        auto* e = bool_var2enode(v);
+        return !e || is_relevant(e);
+    }
+
     void solver::relevant_eh(euf::enode* n) {
         if (m_qsolver)
             m_qsolver->relevant_eh(n);
-        for (auto thv : enode_th_vars(n)) {
+        for (auto const& thv : enode_th_vars(n)) {
             auto* th = m_id2solver.get(thv.get_id(), nullptr);
             if (th && th != m_qsolver)
                 th->relevant_eh(n);
         }       
+    }
+
+    bool solver::enable_ackerman_axioms(expr* e) const {
+        euf::enode* n = get_enode(e);
+        if (!n)
+            return false;
+        for (auto const& thv : enode_th_vars(n)) {
+            auto* th = m_id2solver.get(thv.get_id(), nullptr);
+            if (th && !th->enable_ackerman_axioms(n))
+                return false;
+        }
+        return true;
     }
 
     void solver::pre_simplify() {
@@ -794,6 +806,8 @@ namespace euf {
     }
 
     bool solver::set_root(literal l, literal r) {
+        if (m_relevancy.enabled())
+            return false;
         expr* e = bool_var2expr(l.var());
         if (!e)
             return true;

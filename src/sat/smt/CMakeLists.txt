@@ -38,9 +38,7 @@ z3_add_component(sat_smt
     q_queue.cpp
     q_solver.cpp
     recfun_solver.cpp
-    sat_dual_solver.cpp
     sat_th.cpp
-    smt_relevant.cpp
     user_solver.cpp
   COMPONENT_DEPENDENCIES
     sat

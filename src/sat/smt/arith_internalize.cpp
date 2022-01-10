@@ -237,9 +237,10 @@ namespace arith {
                 if (!is_first) {
                     // skip recursive internalization
                 }
-                else if (a.is_to_int(n, n1)) {
-                    mk_to_int_axiom(t);
-                }
+                else if (a.is_to_int(n, n1)) 
+                    mk_to_int_axiom(t);                
+                else if (a.is_abs(n)) 
+                    mk_abs_axiom(t);                
                 else if (a.is_idiv(n, n1, n2)) {
                     if (!a.is_numeral(n2, r) || r.is_zero()) found_underspecified(n);
                     m_idiv_terms.push_back(n);
@@ -545,11 +546,13 @@ namespace arith {
         }
         m_left_side.clear();
         // reset the coefficients after they have been used.
-        for (unsigned i = 0; i < vars.size(); ++i) {
-            theory_var var = vars[i];
+        for (theory_var var : vars) {
             rational const& r = m_columns[var];
             if (!r.is_zero()) {
-                m_left_side.push_back(std::make_pair(r, register_theory_var_in_lar_solver(var)));
+                auto vi = register_theory_var_in_lar_solver(var);
+                if (lp::tv::is_term(vi))
+                    vi = lp().map_term_index_to_column_index(vi);
+                m_left_side.push_back(std::make_pair(r, vi));
                 m_columns[var].reset();
             }
         }
