@@ -151,12 +151,10 @@ protected:
             if (m_stats.find("max-quantification-depth") == m_stats.end() ||
                 m_stats["max-quantification-depth"] < m_qdepth)
                 m_stats["max-quantification-depth"] = m_qdepth;
-            this->operator()(body);
             m_qdepth--;
         }
 
         void operator()(app * n) {
-            m_stats["function-applications"]++;
             this->operator()(n->get_decl());
         }
 
