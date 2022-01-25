@@ -1208,6 +1208,8 @@ typedef enum {
     Z3_OP_INT_TO_STR,
     Z3_OP_UBV_TO_STR,
     Z3_OP_SBV_TO_STR,
+    Z3_OP_STR_TO_CODE,
+    Z3_OP_STR_FROM_CODE,
     Z3_OP_STRING_LT,
     Z3_OP_STRING_LE,
 
@@ -1423,19 +1425,18 @@ typedef enum
 /**
    \brief Z3 custom error handler (See #Z3_set_error_handler).
 */
-typedef void Z3_error_handler(Z3_context c, Z3_error_code e);
-
+Z3_DECLARE_CLOSURE(Z3_error_handler, void, (Z3_context c, Z3_error_code e));
 
 /**
    \brief callback functions for user propagator.
 */
-typedef void Z3_push_eh(void* ctx);
-typedef void Z3_pop_eh(void* ctx, unsigned num_scopes);
-typedef void* Z3_fresh_eh(void* ctx, Z3_context new_context);
-typedef void Z3_fixed_eh(void* ctx, Z3_solver_callback cb, unsigned id, Z3_ast value);
-typedef void Z3_eq_eh(void* ctx, Z3_solver_callback cb, unsigned x, unsigned y);
-typedef void Z3_final_eh(void* ctx, Z3_solver_callback cb);
-typedef void Z3_created_eh(void* ctx, Z3_solver_callback cb, Z3_ast e, unsigned id);
+Z3_DECLARE_CLOSURE(Z3_push_eh,    void, (void* ctx));
+Z3_DECLARE_CLOSURE(Z3_pop_eh,     void, (void* ctx, unsigned num_scopes));
+Z3_DECLARE_CLOSURE(Z3_fresh_eh,   void*, (void* ctx, Z3_context new_context));
+Z3_DECLARE_CLOSURE(Z3_fixed_eh,   void, (void* ctx, Z3_solver_callback cb, unsigned id, Z3_ast value));
+Z3_DECLARE_CLOSURE(Z3_eq_eh,      void, (void* ctx, Z3_solver_callback cb, unsigned x, unsigned y));
+Z3_DECLARE_CLOSURE(Z3_final_eh,   void, (void* ctx, Z3_solver_callback cb));
+Z3_DECLARE_CLOSURE(Z3_created_eh, void, (void* ctx, Z3_solver_callback cb, Z3_ast e, unsigned id));
 
 
 /**
@@ -3707,6 +3708,21 @@ extern "C" {
        def_API('Z3_mk_int_to_str', AST ,(_in(CONTEXT), _in(AST)))
      */
     Z3_ast Z3_API Z3_mk_int_to_str(Z3_context c, Z3_ast s);
+
+
+    /**
+       \brief String to code conversion.
+       
+       def_API('Z3_mk_string_to_code', AST, (_in(CONTEXT), _in(AST)))
+    */
+    Z3_ast Z3_API Z3_mk_string_to_code(Z3_context c, Z3_ast a);
+
+    /**
+       \brief Code to string conversion.
+       
+       def_API('Z3_mk_string_from_code', AST, (_in(CONTEXT), _in(AST)))
+    */
+    Z3_ast Z3_API Z3_mk_string_from_code(Z3_context c, Z3_ast a);
 
     /**
        \brief Unsigned bit-vector to string conversion.

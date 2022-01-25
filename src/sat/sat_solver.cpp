@@ -3531,7 +3531,7 @@ namespace sat {
 
         for (unsigned i = old_num_vars; i < sz; ++i) {
             bool_var v = m_active_vars[i];
-            if (is_visited(v) || is_active(v)) {
+            if (is_external(v) || is_visited(v) || is_active(v)) {
                 m_vars_to_reinit.push_back(v);
                 m_active_vars[j++] = v;
                 m_var_scope[v] = new_lvl;
@@ -3655,17 +3655,17 @@ namespace sat {
             clause_wrapper cw = m_clauses_to_reinit[i];
             bool reinit = false;
             if (cw.is_binary()) {
-                if (propagate_bin_clause(cw[0], cw[1]) && !at_base_lvl()) 
+                if (propagate_bin_clause(cw[0], cw[1]) && !at_base_lvl())
                     m_clauses_to_reinit[j++] = cw;
-                else if (has_variables_to_reinit(cw[0], cw[1]))
+                else if (has_variables_to_reinit(cw[0], cw[1]) && !at_base_lvl())
                     m_clauses_to_reinit[j++] = cw;
             }
             else {
                 clause & c = *(cw.get_clause());
                 if (ENABLE_TERNARY && c.size() == 3) {
-                    if (!at_base_lvl() && propagate_ter_clause(c))
+                    if (propagate_ter_clause(c) && !at_base_lvl())
                         m_clauses_to_reinit[j++] = cw;                
-                    else if (has_variables_to_reinit(c))
+                    else if (has_variables_to_reinit(c) && !at_base_lvl())
                         m_clauses_to_reinit[j++] = cw;
                     else 
                         c.set_reinit_stack(false);
@@ -3673,13 +3673,13 @@ namespace sat {
                 }
                 detach_clause(c);
                 attach_clause(c, reinit);
-                if (!at_base_lvl() && reinit) 
+                if (reinit && !at_base_lvl()) 
                     // clause propagated literal, must keep it in the reinit stack.
                     m_clauses_to_reinit[j++] = cw;                
-                else if (has_variables_to_reinit(c))
+                else if (has_variables_to_reinit(c) && !at_base_lvl())
                     m_clauses_to_reinit[j++] = cw;
                 else 
-                    c.set_reinit_stack(false);                
+                    c.set_reinit_stack(false);   
             }
         }
         m_clauses_to_reinit.shrink(j);

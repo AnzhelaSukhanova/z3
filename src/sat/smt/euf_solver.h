@@ -305,7 +305,9 @@ namespace euf {
         void get_antecedents(literal l, ext_justification_idx idx, literal_vector& r, bool probing) override;
         void get_antecedents(literal l, th_explain& jst, literal_vector& r, bool probing);
         void add_antecedent(enode* a, enode* b);
-        void add_diseq_antecedent(enode* a, enode* b);
+        void add_diseq_antecedent(ptr_vector<size_t>& ex, enode* a, enode* b);
+        void add_explain(size_t* p) { m_explain.push_back(p); }
+        void reset_explain() { m_explain.reset(); }
         void set_eliminated(bool_var v) override;
         void asserted(literal l) override;
         sat::check_result check() override;
@@ -369,6 +371,7 @@ namespace euf {
         void rewrite(expr_ref& e) { m_rewriter(e); }
         bool is_shared(euf::enode* n) const;
         bool enable_ackerman_axioms(expr* n) const;
+        bool is_fixed(euf::enode* n, expr_ref& val, sat::literal_vector& explain);
 
         // relevancy
 
@@ -426,6 +429,10 @@ namespace euf {
         void user_propagate_register_diseq(user_propagator::eq_eh_t& diseq_eh) {
             check_for_user_propagator();
             m_user_propagator->register_diseq(diseq_eh);
+        }
+        void user_propagate_register_created(user_propagator::created_eh_t& ceh) {
+            check_for_user_propagator();
+            m_user_propagator->register_created(ceh);
         }
         unsigned user_propagate_register_expr(expr* e) {
             check_for_user_propagator();

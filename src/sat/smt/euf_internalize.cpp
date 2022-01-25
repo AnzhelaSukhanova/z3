@@ -167,18 +167,25 @@ namespace euf {
             lit = lit2;
         }
 
+        TRACE("euf", tout << "attach " << v << " " << mk_bounded_pp(e, m) << "\n";);
         m_bool_var2expr.reserve(v + 1, nullptr);
         if (m_bool_var2expr[v] && m_egraph.find(e)) {
+            if (m_egraph.find(e)->bool_var() != v) {
+                IF_VERBOSE(0, verbose_stream()
+                 << "var " << v << "\n"
+                 << "found var " << m_egraph.find(e)->bool_var() << "\n"
+                 << mk_pp(m_bool_var2expr[v], m) << "\n"
+                 << mk_pp(e, m) << "\n");
+            }
             SASSERT(m_egraph.find(e)->bool_var() == v);
             return lit;
         }
-        TRACE("euf", tout << "attach " << v << " " << mk_bounded_pp(e, m) << "\n";);
+
         m_bool_var2expr[v] = e;
-        m_var_trail.push_back(v);
+        m_var_trail.push_back(v);        
         enode* n = m_egraph.find(e);
-        if (!n) {
+        if (!n) 
             n = mk_enode(e, 0, nullptr);
-        }
         SASSERT(n->bool_var() == sat::null_bool_var || n->bool_var() == v);
         m_egraph.set_bool_var(n, v);
         if (m.is_eq(e) || m.is_or(e) || m.is_and(e) || m.is_not(e))

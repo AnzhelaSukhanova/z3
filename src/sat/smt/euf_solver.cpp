@@ -243,11 +243,11 @@ namespace euf {
         m_egraph.explain_eq<size_t>(m_explain, a, b);
     }
 
-    void solver::add_diseq_antecedent(enode* a, enode* b) {
-        sat::bool_var v = get_egraph().explain_diseq(m_explain, a, b);
+    void solver::add_diseq_antecedent(ptr_vector<size_t>& ex, enode* a, enode* b) {
+        sat::bool_var v = get_egraph().explain_diseq(ex, a, b);
         SASSERT(v == sat::null_bool_var || s().value(v) == l_false);
         if (v != sat::null_bool_var) 
-            m_explain.push_back(to_ptr(sat::literal(v, true)));
+            ex.push_back(to_ptr(sat::literal(v, true)));
     }
 
     bool solver::propagate(enode* a, enode* b, ext_justification_idx idx) {
@@ -761,6 +761,29 @@ namespace euf {
         return true;
     }
 
+    bool solver::is_fixed(euf::enode* n, expr_ref& val, sat::literal_vector& explain) {
+        if (n->bool_var() != sat::null_bool_var) {
+            switch (s().value(n->bool_var())) {
+            case l_true:
+                val = m.mk_true();
+                explain.push_back(sat::literal(n->bool_var()));
+                return true;                
+            case l_false:
+                val = m.mk_false();
+                explain.push_back(~sat::literal(n->bool_var()));
+                return true;
+            default:
+                return false;
+            }
+        }
+        for (auto const& thv : enode_th_vars(n)) {
+            auto* th = m_id2solver.get(thv.get_id(), nullptr);
+            if (th && !th->is_fixed(thv.get_var(), val, explain))
+                return true;
+        }
+        return false;
+    }
+
     void solver::pre_simplify() {
         for (auto* e : m_solvers)
             e->pre_simplify();
@@ -808,13 +831,16 @@ namespace euf {
     bool solver::set_root(literal l, literal r) {
         if (m_relevancy.enabled())
             return false;
-        expr* e = bool_var2expr(l.var());
-        if (!e)
-            return true;
         bool ok = true;
         for (auto* s : m_solvers)
             if (!s->set_root(l, r))
                 ok = false;
+
+        if (!ok)
+            return false;
+        expr* e = bool_var2expr(l.var());
+        if (!e)
+            return true;
         if (m.is_eq(e) && !m.is_iff(e))
             ok = false;
         euf::enode* n = get_enode(e);
