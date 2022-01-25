@@ -19,6 +19,7 @@ Notes:
 --*/
 #include<string>
 #include<map>
+#include<regex>
 
 #include "ast/ast.h"
 #include "util/params.h"
@@ -88,7 +89,9 @@ public:
 			if (!m_stats.empty()) {
 				const auto& lastKey = m_stats.rbegin()->first;
         		for (auto const& kv : m_stats) {
-            		sout << "\"" << kv.first << "\": " << kv.second;
+					std::regex newlines_reg("\n+");
+					auto result = std::regex_replace(kv.first, newlines_reg, "");
+            		sout << "\"" << result << "\": " << kv.second;
 					if (kv.first != lastKey)
         				sout << ", \n";
 				}
