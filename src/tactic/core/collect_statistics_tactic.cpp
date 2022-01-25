@@ -85,11 +85,13 @@ public:
 			std::ofstream sout(".collect_stats.json");
 
 			sout << "{";
-			const auto& lastKey = m_stats.rbegin()->first;
-        	for (auto const& kv : m_stats) {
-            	sout << "\"" << kv.first << "\": " << kv.second;
-				if (kv.first != lastKey)
-        			sout << ", \n";
+			if (!m_stats.empty()) {
+				const auto& lastKey = m_stats.rbegin()->first;
+        		for (auto const& kv : m_stats) {
+            		sout << "\"" << kv.first << "\": " << kv.second;
+					if (kv.first != lastKey)
+        				sout << ", \n";
+				}
 			}
         	sout << "}\n";
 
