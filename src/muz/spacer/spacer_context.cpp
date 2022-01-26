@@ -2589,8 +2589,7 @@ bool context::validate() {
 
 					std::ofstream mout(".model_exception");
 					mout << msg.str() << "\n";
-					mout << "model:" << "\n";
-					model_smt2_pp(mout, m, *model, 0);
+					mout << "model:" << *get_model() << "\n";
 					mout.close();
 
                     throw default_exception(msg.str());
