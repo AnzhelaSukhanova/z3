@@ -465,6 +465,7 @@ public:
         m_final_eh = nullptr;
         m_eq_eh = nullptr;
         m_diseq_eh = nullptr;
+        m_created_eh = nullptr;
     }
 
     void user_propagate_init(
@@ -501,7 +502,7 @@ public:
     }
 
     void user_propagate_register_created(user_propagator::created_eh_t& created_eh) override {
-        m_ctx->user_propagate_register_created(created_eh);
+        m_created_eh = created_eh;
     }
 };
 
