@@ -4358,10 +4358,26 @@ extern "C" {
 
        \sa Z3_mk_array_sort
        \sa Z3_get_sort_kind
+       \sa Z3_get_array_sort_domain_n
 
        def_API('Z3_get_array_sort_domain', SORT, (_in(CONTEXT), _in(SORT)))
     */
     Z3_sort Z3_API Z3_get_array_sort_domain(Z3_context c, Z3_sort t);
+
+
+    /**
+       \brief Return the i'th domain sort of an n-dimensional array.
+
+       \pre Z3_get_sort_kind(c, t) == Z3_ARRAY_SORT
+
+       \sa Z3_mk_array_sort
+       \sa Z3_get_sort_kind
+       \sa Z3_get_array_sort_domain
+
+       def_API('Z3_get_array_sort_domain_n', SORT, (_in(CONTEXT), _in(SORT), _in(UINT)))
+       
+     */
+    Z3_sort Z3_API Z3_get_array_sort_domain_n(Z3_context c, Z3_sort t, unsigned idx);
 
     /**
        \brief Return the range of the given array sort.
@@ -6672,6 +6688,13 @@ extern "C" {
 
     /**
        \brief register a user-properator with the solver.
+
+       \param c - context.
+       \param s - solver object.
+       \param user_context - a context used to maintain state for callbacks.
+       \param push_eh - a callback invoked when scopes are pushed
+       \param pop_eh - a callback invoked when scopes are poped
+       \param fresh_eh - a solver may spawn new solvers internally. This callback is used to produce a fresh user_context to be associated with fresh solvers. 
      */
 
     void Z3_API Z3_solver_propagate_init(
@@ -6694,11 +6717,15 @@ extern "C" {
     /**
        \brief register a callback on final check.
        This provides freedom to the propagator to delay actions or implement a branch-and bound solver.
+       The final check is invoked when all decision variables have been assigned by the solver.
 
-       The final_eh callback takes as argument the original user_context that was used
-       when calling \c Z3_solver_propagate_init, and it takes a callback context for propagations.
-       If may use the callback context to invoke the \c Z3_solver_propagate_consequence function.
-       If the callback context gets used, the solver continues. 
+       The \c final_eh callback takes as argument the original user_context that was used
+       when calling \c Z3_solver_propagate_init, and it takes a callback context with the
+       opaque type \c Z3_solver_callback. 
+       The callback context is passed as argument to invoke the \c Z3_solver_propagate_consequence function.
+       The callback context can only be accessed (for propagation and for dynamically registering expressions) within a callback. 
+       If the callback context gets used for propagation or conflicts, those propagations take effect and
+       may trigger new decision variables to be set.
      */
     void Z3_API Z3_solver_propagate_final(Z3_context c, Z3_solver s, Z3_final_eh final_eh);
     
