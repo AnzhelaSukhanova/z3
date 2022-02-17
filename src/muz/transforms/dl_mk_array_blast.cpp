@@ -298,7 +298,7 @@ namespace datalog {
         fml2 = m.mk_implies(body, head);
         proof_ref p(m);
         rule_set new_rules(m_ctx);
-        TRACE("dl", tout << fml2 << "\n";);q
+        TRACE("dl", tout << fml2 << "\n";);
         rm.mk_rule(fml2, p, new_rules, r.name());
 
         rule_ref new_rule(rm);
