@@ -233,7 +233,7 @@ namespace datalog {
                 conjs.push_back(m.mk_implies(m.mk_and(eqs.size(), eqs.data()), m.mk_eq(v1, v2)));
             }
         }
-        body = m.mk_and(conjs.size(), conjs.data());        
+        body = m.mk_and(conjs.size(), conjs.data());
         m_rewriter(body);   
         return true;
     }
@@ -289,6 +289,7 @@ namespace datalog {
         m_rewriter(head);
         TRACE("dl", tout << body << " => " << head << "\n";);
         change = ackermanize(r, body, head);
+
         if (!change) {
             rules.add_rule(&r);
             return false;
@@ -297,9 +298,8 @@ namespace datalog {
         fml2 = m.mk_implies(body, head);
         proof_ref p(m);
         rule_set new_rules(m_ctx);
-        TRACE("dl", tout << fml2 << "\n";);
+        TRACE("dl", tout << fml2 << "\n";);q
         rm.mk_rule(fml2, p, new_rules, r.name());
-        
 
         rule_ref new_rule(rm);
         if (m_simplifier.transform_rule(new_rules.last(), new_rule)) {
@@ -308,7 +308,7 @@ namespace datalog {
                 rm.to_formula(r, fml1);
                 p = m.mk_rewrite(fml1, fml2);
                 p = m.mk_modus_ponens(r.get_proof(), p);
-                new_rule->set_proof(m, p);                
+				new_rule->set_proof(m, p);
             }
             rules.add_rule(new_rule.get());
             rm.mk_rule_rewrite_proof(r, *new_rule.get());
@@ -328,11 +328,11 @@ namespace datalog {
         for (rule* r : source) {
             if (m_ctx.canceled())
                 return nullptr;
-            change = blast(*r, *rules) || change;
+			change = blast(*r, *rules) || change;
         }
         if (!change) {
             rules = nullptr;
-        }        
+        }
         return rules.detach();        
     }
 

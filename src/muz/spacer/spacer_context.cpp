@@ -2586,12 +2586,6 @@ bool context::validate() {
                     msg << "rule validation failed when checking: "
                         << mk_pp(tmp, m);
 					IF_VERBOSE(0, verbose_stream() << msg.str() << "\n";);
-
-					std::ofstream mout(".model_exception");
-					mout << msg.str() << "\n";
-					mout << "model:" << *get_model() << "\n";
-					mout.close();
-
                     throw default_exception(msg.str());
                     return false;
                 }
