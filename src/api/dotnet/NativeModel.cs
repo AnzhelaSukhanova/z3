@@ -20,19 +20,15 @@ Notes:
 --*/
 
 using System;
-using System.Diagnostics;
 using System.Collections.Generic;
+using System.Linq;
+using System.Diagnostics;
 
 namespace Microsoft.Z3
 {
-    using Z3_context = System.IntPtr;
     using Z3_ast = System.IntPtr;
-    using Z3_app = System.IntPtr;
-    using Z3_sort = System.IntPtr;
     using Z3_func_decl = System.IntPtr;
-    using Z3_model = System.IntPtr;
-    using Z3_func_interp = System.IntPtr;
-    using Z3_func_entry = System.IntPtr;
+    using Z3_sort = System.IntPtr;
 
     /// <summary>
     /// A Model contains interpretations (assignments) of constants and functions. 
@@ -45,7 +41,7 @@ namespace Microsoft.Z3
         /// </summary>
         /// <param name="a">A Constant</param>
         /// <returns>An expression if the constant has an interpretation in the model, null otherwise.</returns>
-        public Z3_ast ConstInterp(Z3_ast a) => ConstInterp(Native.Z3_get_app_decl(Context.nCtx, a));
+        public Z3_ast ConstInterp(Z3_ast a) => ConstFuncInterp(Native.Z3_get_app_decl(ntvContext.nCtx, a));
 
         /// <summary>
         /// Retrieves the interpretation (the assignment) of <paramref name="f"/> in the model. 
@@ -54,10 +50,10 @@ namespace Microsoft.Z3
         /// <returns>An expression if the function has an interpretation in the model, null otherwise.</returns>    
         public Z3_ast ConstFuncInterp(Z3_func_decl f)
         {
-            if (Native.Z3_get_arity(Context.nCtx, f) != 0)
+            if (Native.Z3_get_arity(ntvContext.nCtx, f) != 0)
                 throw new Z3Exception("Non-zero arity functions have FunctionInterpretations as a model. Use FuncInterp.");
 
-            return Native.Z3_model_get_const_interp(Context.nCtx, NativeObject, f);
+            return Native.Z3_model_get_const_interp(ntvContext.nCtx, NativeObject, f);
         }
 
         /// <summary>
@@ -67,12 +63,11 @@ namespace Microsoft.Z3
         /// <returns>A FunctionInterpretation if the function has an interpretation in the model, null otherwise.</returns> 
         public NativeFuncInterp FuncInterp(Z3_func_decl f)
         {
+            Z3_sort_kind sk = (Z3_sort_kind)Native.Z3_get_sort_kind(ntvContext.nCtx, Native.Z3_get_range(ntvContext.nCtx, f));
 
-            Z3_sort_kind sk = (Z3_sort_kind)Native.Z3_get_sort_kind(Context.nCtx, Native.Z3_get_range(Context.nCtx, f));
-
-            if (Native.Z3_get_arity(Context.nCtx, f) == 0)
+            if (Native.Z3_get_arity(ntvContext.nCtx, f) == 0)
             {
-                IntPtr n = Native.Z3_model_get_const_interp(Context.nCtx, NativeObject, f);
+                IntPtr n = Native.Z3_model_get_const_interp(ntvContext.nCtx, NativeObject, f);
 
                 if (sk == Z3_sort_kind.Z3_ARRAY_SORT)
                 {
@@ -80,10 +75,10 @@ namespace Microsoft.Z3
                         return null;
                     else
                     {
-                        if (Native.Z3_is_as_array(Context.nCtx, n) == 0)
+                        if (Native.Z3_is_as_array(ntvContext.nCtx, n) == 0)
                             throw new Z3Exception("Argument was not an array constant");
-                        var fd = Native.Z3_get_as_array_func_decl(Context.nCtx, n);
-                        return new NativeFuncInterp(Context, this, f, fd);
+                        var fd = Native.Z3_get_as_array_func_decl(ntvContext.nCtx, n);
+                        return new NativeFuncInterp(ntvContext, this, f, fd);
                     }
                 }
                 else
@@ -93,11 +88,11 @@ namespace Microsoft.Z3
             }
             else
             {
-                IntPtr n = Native.Z3_model_get_func_interp(Context.nCtx, NativeObject, f);
+                IntPtr n = Native.Z3_model_get_func_interp(ntvContext.nCtx, NativeObject, f);
                 if (n == IntPtr.Zero)
                     return null;
                 else
-                    return new NativeFuncInterp(Context, this, f, n);
+                    return new NativeFuncInterp(ntvContext, this, f, n);
             }
         }
 
@@ -108,7 +103,7 @@ namespace Microsoft.Z3
         /// </summary>
         public uint NumConsts
         {
-            get { return Native.Z3_model_get_num_consts(Context.nCtx, NativeObject); }
+            get { return Native.Z3_model_get_num_consts(ntvContext.nCtx, NativeObject); }
         }
 
 
@@ -123,7 +118,7 @@ namespace Microsoft.Z3
                 uint n = NumConsts;
                 Z3_func_decl[] res = new Z3_func_decl[n];
                 for (uint i = 0; i < n; i++)
-                    res[i] = Native.Z3_model_get_const_decl(Context.nCtx, NativeObject, i);
+                    res[i] = Native.Z3_model_get_const_decl(ntvContext.nCtx, NativeObject, i);
                 return res;
             }
         }
@@ -139,23 +134,21 @@ namespace Microsoft.Z3
                 uint nc = NumConsts;
                 for (uint i = 0; i < nc; ++i)
                 {
-                    var f = Native.Z3_model_get_const_decl(Context.nCtx, NativeObject, i);
-                    IntPtr n = Native.Z3_model_get_const_interp(Context.nCtx, NativeObject, f);
+                    var f = Native.Z3_model_get_const_decl(ntvContext.nCtx, NativeObject, i);
+                    IntPtr n = Native.Z3_model_get_const_interp(ntvContext.nCtx, NativeObject, f);
                     if (n == IntPtr.Zero) continue;
                     yield return new KeyValuePair<Z3_func_decl, Z3_ast>(f, n);
                 }
             }
         }
 
-
         /// <summary>
         /// The number of function interpretations in the model.
         /// </summary>
         public uint NumFuncs
         {
-            get { return Native.Z3_model_get_num_funcs(Context.nCtx, NativeObject); }
+            get { return Native.Z3_model_get_num_funcs(ntvContext.nCtx, NativeObject); }
         }
-
 
         /// <summary>
         /// The function declarations of the function interpretations in the model.
@@ -168,11 +161,10 @@ namespace Microsoft.Z3
                 uint n = NumFuncs;
                 Z3_func_decl[] res = new Z3_func_decl[n];
                 for (uint i = 0; i < n; i++)
-                    res[i] = Native.Z3_model_get_func_decl(Context.nCtx, NativeObject, i);
+                    res[i] = Native.Z3_model_get_func_decl(ntvContext.nCtx, NativeObject, i);
                 return res;
             }
         }
-
 
         /// <summary>
         /// All symbols that have an interpretation in the model.
@@ -187,9 +179,9 @@ namespace Microsoft.Z3
                 uint n = nFuncs + nConsts;
                 Z3_func_decl[] res = new Z3_func_decl[n];
                 for (uint i = 0; i < nConsts; i++)
-                    res[i] = Native.Z3_model_get_const_decl(Context.nCtx, NativeObject, i);
+                    res[i] = Native.Z3_model_get_const_decl(ntvContext.nCtx, NativeObject, i);
                 for (uint i = 0; i < nFuncs; i++)
-                    res[nConsts + i] = Native.Z3_model_get_func_decl(Context.nCtx, NativeObject, i);
+                    res[nConsts + i] = Native.Z3_model_get_func_decl(ntvContext.nCtx, NativeObject, i);
                 return res;
             }
         }
@@ -204,7 +196,6 @@ namespace Microsoft.Z3
             /// </summary>
             public ModelEvaluationFailedException() : base() { }
         }
-
 
         /// <summary>
         /// Evaluates the expression <paramref name="t"/> in the current model.
@@ -224,7 +215,7 @@ namespace Microsoft.Z3
         {
 
             IntPtr v = IntPtr.Zero;
-            if (Native.Z3_model_eval(Context.nCtx, NativeObject, t, (byte)(completion ? 1 : 0), ref v) == (byte)0)
+            if (Native.Z3_model_eval(ntvContext.nCtx, NativeObject, t, (byte)(completion ? 1 : 0), ref v) == (byte)0)
                 throw new ModelEvaluationFailedException();
             else
                 return v;
@@ -235,14 +226,13 @@ namespace Microsoft.Z3
         /// </summary>        
         public Z3_ast Evaluate(Z3_ast t, bool completion = false) => Eval(t, completion);
 
-
         /// <summary>
         /// Evaluate expression to a double, assuming it is a numeral already.
         /// </summary>
         public double Double(Z3_ast t)
         {
             var r = Eval(t, true);
-            return Native.Z3_get_numeral_double(Context.nCtx, r);
+            return Native.Z3_get_numeral_double(ntvContext.nCtx, r);
         }
 
         /// <summary>
@@ -253,45 +243,70 @@ namespace Microsoft.Z3
             /// <summary>
             /// One dimensional array of indices where the array is updated
             /// </summary>
-            public KeyValuePair<Z3_ast,Z3_ast>[] Updates;
+            public KeyValuePair<Z3_ast, Z3_ast>[] Updates;
 
             /// <summary>
             /// default Else case
             /// </summary>
             public Z3_ast Else;
+
+            /// <summary>
+            /// Domain for array
+            /// Updates.Keys
+            /// </summary>
+            public Z3_ast[] Domain;
+
+            /// <summary>
+            /// Range for array
+            /// Updates.Values
+            /// </summary>
+            public Z3_ast[] Range;
         }
 
         /// <summary>
         /// Convert the interpretation of t into a sequence of array updates
         /// </summary>
         /// <param name="t"></param>
+        /// <param name="result"></param>
         /// <returns>null if the argument does evaluate to a sequence of stores to an array</returns>
-        public ArrayValue TryGetArrayValue(Z3_ast t)
+        public bool TryGetArrayValue(Z3_ast t, out ArrayValue result)
         {
             var r = Eval(t, true);
             // check that r is a sequence of store over a constant default array.
-            var updates = new List<KeyValuePair<Z3_ast, Z3_ast>>();
-            var result = new ArrayValue();
+            var updates = new Dictionary<Z3_ast, Z3_ast>();
+            result = null;
             while (true)
             {
-                // check that r is an app, and the decl-kind is Z3_OP_ARRAY_CONST or Z3_OP_ARRAY_STORE
-                // if it is Z3_OP_ARRAY_CONST then set result.Else and break;
-                // if it is ARRAY_STORE, then append to 'updates' and continue
-                // in other cases return null
-                return null;
-
+                if (ntvContext.GetAstKind(r) != Z3_ast_kind.Z3_APP_AST)
+                    return false;
+                Z3_func_decl f = ntvContext.GetAppDecl(r);
+                var kind = ntvContext.GetDeclKind(f);
+                if (kind == Z3_decl_kind.Z3_OP_CONST_ARRAY)
+                {
+                    result = new ArrayValue();
+                    result.Else = ntvContext.GetAppArg(r, 0);
+                    result.Updates = updates.ToArray();
+                    result.Domain = updates.Keys.ToArray();
+                    result.Range = updates.Values.ToArray();
+                    return true;
+                }
+                else if (kind == Z3_decl_kind.Z3_OP_STORE)
+                {
+                    Debug.Assert(ntvContext.GetNumArgs(r) == 3);
+                    updates[ntvContext.GetAppArg(r, 1)] = ntvContext.GetAppArg(r, 2);
+                    r = ntvContext.GetAppArg(r, 0);
+                }
+                else
+                {
+                    return false;
+                }
             }
-#if false
-            result.Updates = updates.ToArray();
-         
-            return null;
-#endif
         }
 
         /// <summary>
         /// The number of uninterpreted sorts that the model has an interpretation for.
         /// </summary>    
-        public uint NumSorts { get { return Native.Z3_model_get_num_sorts(Context.nCtx, NativeObject); } }
+        public uint NumSorts { get { return Native.Z3_model_get_num_sorts(ntvContext.nCtx, NativeObject); } }
 
 
         /// <summary>
@@ -311,7 +326,7 @@ namespace Microsoft.Z3
                 uint n = NumSorts;
                 Z3_sort[] res = new Z3_sort[n];
                 for (uint i = 0; i < n; i++)
-                    res[i] = Native.Z3_model_get_sort(Context.nCtx, NativeObject, i);
+                    res[i] = Native.Z3_model_get_sort(ntvContext.nCtx, NativeObject, i);
                 return res;
             }
         }
@@ -323,16 +338,16 @@ namespace Microsoft.Z3
         /// <returns>A string representation of the model.</returns>
         public override string ToString()
         {
-            return Native.Z3_model_to_string(Context.nCtx, NativeObject);
+            return Native.Z3_model_to_string(ntvContext.nCtx, NativeObject);
         }
 
 
         IntPtr NativeObject;
-        NativeContext Context;
+        NativeContext ntvContext;
 
         internal NativeModel(NativeContext ctx, IntPtr obj)
         {
-            Context = ctx;
+            ntvContext = ctx;
             NativeObject = obj;
             Debug.Assert(ctx != null);
             Native.Z3_model_inc_ref(ctx.nCtx, obj);
@@ -354,7 +369,7 @@ namespace Microsoft.Z3
         {
             if (NativeObject != IntPtr.Zero)
             {
-                Native.Z3_model_dec_ref(Context.nCtx, NativeObject);
+                Native.Z3_model_dec_ref(ntvContext.nCtx, NativeObject);
                 NativeObject = IntPtr.Zero;
             }
             GC.SuppressFinalize(this);
