@@ -42,7 +42,7 @@ python scripts/mk_make.py -x
 then:
 
 ```bash
-cd build
+mkdir build && cd build
 nmake
 ```
 
@@ -54,7 +54,7 @@ Execute:
 
 ```bash
 python scripts/mk_make.py
-cd build
+mkdir build && cd build
 make
 sudo make install
 ```
@@ -86,7 +86,7 @@ the ``--prefix=`` command line option to change the install prefix. For example:
 
 ```bash
 python scripts/mk_make.py --prefix=/home/leo
-cd build
+mkdir build && cd build
 make
 make install
 ```
@@ -199,6 +199,11 @@ The Julia package [Z3.jl](https://github.com/ahumenberger/Z3.jl) wraps the C++ A
 
 A WebAssembly build with associated TypeScript typings is published on npm as [z3-solver](https://www.npmjs.com/package/z3-solver). Information about building these bindings can be found in [src/api/js](src/api/js).
 
+### Smalltalk (``Pharo`` / ``Smalltalk/X``)
+
+Project [MachineArithmetic](https://github.com/shingarov/MachineArithmetic) provides Smalltalk interface
+to Z3's C API. For more information, see [MachineArithmetic/README.md](https://github.com/shingarov/MachineArithmetic/blob/pure-z3/MachineArithmetic/README.md)
+
 ## System Overview
 
 ![System Diagram](https://github.com/Z3Prover/doc/blob/master/programmingz3/images/Z3Overall.jpg)
@@ -215,5 +220,6 @@ A WebAssembly build with associated TypeScript typings is published on npm as [z
 * C
 * OCaml
 * [Julia](https://github.com/ahumenberger/Z3.jl)
+* [Smalltalk](https://github.com/shingarov/MachineArithmetic/blob/pure-z3/MachineArithmetic/README.md) (supports Pharo and Smalltalk/X)
 
 
