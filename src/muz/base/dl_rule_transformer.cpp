@@ -72,8 +72,7 @@ namespace datalog {
         bool modified = false;
 
         TRACE("dl_rule_transf", 
-            tout<<"init:\n";
-            rules.display(tout);
+            tout << "init: ";
         );
         scoped_ptr<rule_set> new_rules = alloc(rule_set, rules);      
         plugin_vector::iterator it = m_plugins.begin();
@@ -108,8 +107,7 @@ namespace datalog {
 
             IF_VERBOSE(1, verbose_stream() << new_rules->get_num_rules() << " rules " << sec << "s)\n";);
             TRACE("dl_rule_transf", 
-                tout << typeid(p).name()<<":\n";
-                new_rules->display(tout);
+                tout << typeid(p).name() << " ";
             );
         }
         if (modified) {
