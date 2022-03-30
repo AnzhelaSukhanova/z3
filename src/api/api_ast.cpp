@@ -816,12 +816,12 @@ extern "C" {
         switch(a->get_kind()) {
         case AST_APP: {
             app* e = to_app(a);
-            if (e->get_num_args() != num_args) {
-                SET_ERROR_CODE(Z3_IOB, nullptr);
-            }
-            else {
-                a = m.mk_app(e->get_decl(), num_args, args);
-            }
+//            if (e->get_num_args() != num_args) {
+//                SET_ERROR_CODE(Z3_IOB, nullptr);
+//            }
+//            else {
+			a = m.mk_app(e->get_decl(), num_args, args);
+//            }
             break;
         }
         case AST_QUANTIFIER: {
