@@ -821,7 +821,7 @@ extern "C" {
 //                SET_ERROR_CODE(Z3_IOB, nullptr);
 //            }
 //            else {
-			if (e->get_num_args() > num_args and num_args == 1)
+			if (e->get_num_args() > num_args && num_args == 1)
 				a = args[0];
 			else
 				a = m.mk_app(e->get_decl(), num_args, args);
@@ -860,7 +860,7 @@ extern "C" {
 		void operator()(quantifier * q) {
 			if (depth < 0)
 				return;
-			if (kind == OP_TRUE and is_quantifier) {
+			if (kind == OP_TRUE && is_quantifier) {
 				if (depth==0)
 					result = of_expr(q);
 				depth--;
@@ -870,7 +870,7 @@ extern "C" {
 		void operator()(app* a) {
 			if (depth < 0)
 				return;
-			if ((kind == OP_TRUE and not is_quantifier) or a->get_decl_kind() == kind) {
+			if ((kind == OP_TRUE && !is_quantifier) || a->get_decl_kind() == kind) {
 				if (depth==0)
 					result = of_expr(a);
 				depth--;
@@ -903,7 +903,7 @@ extern "C" {
 		void operator()(quantifier * q) {
 			if (depth < 0)
 				return;
-			if (kind == OP_TRUE and is_quantifier) {
+			if (kind == OP_TRUE && is_quantifier) {
 				if (depth==0)
 					q = (quantifier*)new_term;
 				depth--;
@@ -913,7 +913,7 @@ extern "C" {
 		void operator()(app* a) {
 			if (depth < 0)
 				return;
-			if ((kind == OP_TRUE and not is_quantifier) or a->get_decl_kind() == kind) {
+			if ((kind == OP_TRUE && !is_quantifier) || a->get_decl_kind() == kind) {
 				if (depth==0)
 					a = to_app(new_term);
 				depth--;
