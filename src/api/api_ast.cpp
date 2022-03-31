@@ -41,6 +41,7 @@ Revision History:
 #include "util/scoped_timer.h"
 #include "ast/pp_params.hpp"
 #include "ast/expr_abstract.h"
+#include "ast/for_each_expr.h"
 
 
 extern bool is_numeral_sort(Z3_context c, Z3_sort ty);
@@ -820,7 +821,10 @@ extern "C" {
 //                SET_ERROR_CODE(Z3_IOB, nullptr);
 //            }
 //            else {
-			a = m.mk_app(e->get_decl(), num_args, args);
+			if (e->get_num_args() > num_args and num_args == 1)
+				a = args[0];
+			else
+				a = m.mk_app(e->get_decl(), num_args, args);
 //            }
             break;
         }
@@ -840,6 +844,94 @@ extern "C" {
         RETURN_Z3(of_expr(a));
         Z3_CATCH_RETURN(nullptr);
     }
+
+	class find_proc {
+	public:
+		Z3_ast result;
+		decl_kind kind;
+		unsigned depth;
+		bool is_quantifier;
+
+		find_proc(Z3_ast r, decl_kind k, unsigned d, bool iq) :
+			result(r), kind(k), depth(d), is_quantifier(iq) {}
+
+		void operator()(var * v) {}
+
+		void operator()(quantifier * q) {
+			if (depth < 0)
+				return;
+			if (kind == OP_TRUE and is_quantifier) {
+				if (depth==0)
+					result = of_expr(q);
+				depth--;
+			}
+		}
+
+		void operator()(app* a) {
+			if (depth < 0)
+				return;
+			if ((kind == OP_TRUE and not is_quantifier) or a->get_decl_kind() == kind) {
+				if (depth==0)
+					result = of_expr(a);
+				depth--;
+			}
+		}
+	};
+
+	Z3_ast Z3_API Z3_find_term(Z3_context c, Z3_ast _a, unsigned kind, unsigned depth, bool is_quantifier) {
+		Z3_ast result;
+		find_proc fp(result, is_quantifier? (quantifier_kind)kind : (decl_kind)kind, depth, is_quantifier);
+		expr_mark visited;
+		app* a = to_app(_a);
+		for_each_expr(fp, visited, a);
+		return result;
+	}
+
+	class set_proc {
+	public:
+		Z3_context ctx;
+		decl_kind kind;
+		unsigned depth;
+		bool is_quantifier;
+		Z3_ast new_term;
+
+		set_proc(Z3_context c, decl_kind k, unsigned d, bool iq, Z3_ast nt) :
+			ctx(c), kind(k), depth(d), is_quantifier(iq), new_term(nt) {}
+
+		void operator()(var * v) {}
+
+		void operator()(quantifier * q) {
+			if (depth < 0)
+				return;
+			if (kind == OP_TRUE and is_quantifier) {
+				if (depth==0)
+					q = (quantifier*)new_term;
+				depth--;
+			}
+		}
+
+		void operator()(app* a) {
+			if (depth < 0)
+				return;
+			if ((kind == OP_TRUE and not is_quantifier) or a->get_decl_kind() == kind) {
+				if (depth==0)
+					a = to_app(new_term);
+				depth--;
+			}
+		}
+	};
+
+	Z3_ast Z3_API Z3_set_term(Z3_context c,
+							  Z3_ast _a,
+							  unsigned kind,
+							  unsigned depth,
+							  bool is_quantifier,
+							  Z3_ast term) {
+		set_proc sp(c, is_quantifier? (quantifier_kind)kind : (decl_kind)kind, depth, is_quantifier, term);
+		expr_mark visited;
+		app* a = to_app(_a);
+		for_each_expr(sp, visited, a);
+	}
 
     Z3_ast Z3_API Z3_substitute(Z3_context c,
                                 Z3_ast _a,

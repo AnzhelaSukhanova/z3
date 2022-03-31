@@ -5233,6 +5233,20 @@ extern "C" {
     */
     Z3_ast Z3_API Z3_update_term(Z3_context c, Z3_ast a, unsigned num_args, Z3_ast const args[]);
 
+	/**
+	 	\brief .
+
+		def_API('Z3_find_term', AST, (_in(CONTEXT), _in(AST), _in(UINT), _in(UINT), _in(BOOL)))
+	*/
+	Z3_ast Z3_API Z3_find_term(Z3_context c, Z3_ast a, unsigned kind, unsigned depth, bool is_quantifier);
+
+	/**
+	 	\brief .
+
+		def_API('Z3_set_term', AST, (_in(CONTEXT), _in(AST), _in(UINT), _in(UINT), _in(BOOL), _in(AST)))
+	*/
+	Z3_ast Z3_API Z3_set_term(Z3_context c, Z3_ast a, unsigned kind, unsigned depth, bool is_quantifier, Z3_ast term);
+
     /**
        \brief Substitute every occurrence of \ccode{from[i]} in \c a with \ccode{to[i]}, for \c i smaller than \c num_exprs.
        The result is the new AST. The arrays \c from and \c to must have size \c num_exprs.
