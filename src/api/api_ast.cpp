@@ -879,12 +879,16 @@ extern "C" {
 	};
 
 	Z3_ast Z3_API Z3_find_term(Z3_context c, Z3_ast _a, unsigned kind, unsigned depth, bool is_quantifier) {
+		Z3_TRY;
+		LOG_Z3_find_term(c, _a, kind, depth, is_quantifier);
+		RESET_ERROR_CODE();
 		Z3_ast result;
 		find_proc fp(result, is_quantifier? (quantifier_kind)kind : (decl_kind)kind, depth, is_quantifier);
 		expr_mark visited;
 		app* a = to_app(_a);
 		for_each_expr(fp, visited, a);
-		return result;
+		RETURN_Z3(result);
+		Z3_CATCH_RETURN(nullptr);
 	}
 
 	class set_proc {
@@ -927,10 +931,14 @@ extern "C" {
 							  unsigned depth,
 							  bool is_quantifier,
 							  Z3_ast term) {
+		Z3_TRY;
+		LOG_Z3_set_term(c, _a, kind, depth, is_quantifier, term);
+		RESET_ERROR_CODE();
 		set_proc sp(c, is_quantifier? (quantifier_kind)kind : (decl_kind)kind, depth, is_quantifier, term);
 		expr_mark visited;
 		app* a = to_app(_a);
 		for_each_expr(sp, visited, a);
+		Z3_CATCH_RETURN(nullptr);
 	}
 
     Z3_ast Z3_API Z3_substitute(Z3_context c,
