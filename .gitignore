@@ -92,3 +92,5 @@ examples/**/obj
 CMakeSettings.json
 # Editor temp files
 *.swp
+.idea/*
+cmake-build-debug/*

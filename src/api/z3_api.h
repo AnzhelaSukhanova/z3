@@ -5236,16 +5236,22 @@ extern "C" {
 	/**
 	 	\brief .
 
-		def_API('Z3_find_term', AST, (_in(CONTEXT), _in(AST), _in(UINT), _in(UINT), _in(BOOL)))
+		def_API('Z3_find_term', AST, (_in(CONTEXT), _in(AST), _in(UINT), _in(UINT), _in(BOOL), _in(UINT), _out_array(5, INT)))
 	*/
-	Z3_ast Z3_API Z3_find_term(Z3_context c, Z3_ast a, unsigned kind, unsigned depth, bool is_quantifier);
+	Z3_ast Z3_API Z3_find_term(Z3_context c,
+							   Z3_ast a,
+							   unsigned kind,
+							   unsigned depth,
+							   bool search_quantifier,
+							   unsigned path_length,
+							   int path[]);
 
 	/**
 	 	\brief .
 
-		def_API('Z3_set_term', AST, (_in(CONTEXT), _in(AST), _in(UINT), _in(UINT), _in(BOOL), _in(AST)))
+		def_API('Z3_set_term', AST, (_in(CONTEXT), _in(AST), _in(AST), _in(UINT),  _in(UINT), _in_array(4, INT)))
 	*/
-	Z3_ast Z3_API Z3_set_term(Z3_context c, Z3_ast a, unsigned kind, unsigned depth, bool is_quantifier, Z3_ast term);
+	Z3_ast Z3_API Z3_set_term(Z3_context c, Z3_ast cur_ast, Z3_ast new_term, unsigned cur_depth, unsigned path_length, int path[]);
 
     /**
        \brief Substitute every occurrence of \ccode{from[i]} in \c a with \ccode{to[i]}, for \c i smaller than \c num_exprs.

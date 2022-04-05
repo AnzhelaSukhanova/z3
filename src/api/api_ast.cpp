@@ -817,15 +817,12 @@ extern "C" {
         switch(a->get_kind()) {
         case AST_APP: {
             app* e = to_app(a);
-//            if (e->get_num_args() != num_args) {
-//                SET_ERROR_CODE(Z3_IOB, nullptr);
-//            }
-//            else {
-			if (e->get_num_args() > num_args && num_args == 1)
-				a = args[0];
-			else
+            if (e->get_num_args() != num_args) {
+                SET_ERROR_CODE(Z3_IOB, nullptr);
+            }
+            else {
 				a = m.mk_app(e->get_decl(), num_args, args);
-//            }
+			}
             break;
         }
         case AST_QUANTIFIER: {
@@ -845,99 +842,141 @@ extern "C" {
         Z3_CATCH_RETURN(nullptr);
     }
 
-	class find_proc {
-	public:
-		Z3_ast result;
-		decl_kind kind;
-		unsigned depth;
-		bool is_quantifier;
-
-		find_proc(Z3_ast r, decl_kind k, unsigned d, bool iq) :
-			result(r), kind(k), depth(d), is_quantifier(iq) {}
-
-		void operator()(var * v) {}
-
-		void operator()(quantifier * q) {
-			if (depth < 0)
-				return;
-			if (kind == OP_TRUE && is_quantifier) {
-				if (depth==0)
-					result = of_expr(q);
-				depth--;
-			}
+	decl_kind to_decl_kind(Z3_decl_kind kind)
+	{
+		switch(kind)
+		{
+			case Z3_OP_TRUE: return OP_TRUE;
+			case Z3_OP_AND: return OP_AND;
+			case Z3_OP_OR: return OP_OR;
+			case Z3_OP_LE: return OP_LE;
+			case Z3_OP_GE: return OP_GE;
+			case Z3_OP_LT: return OP_LT;
+			case Z3_OP_GT: return OP_GT;
+			default: SASSERT(false);;
 		}
+	}
 
-		void operator()(app* a) {
-			if (depth < 0)
-				return;
-			if ((kind == OP_TRUE && !is_quantifier) || a->get_decl_kind() == kind) {
-				if (depth==0)
-					result = of_expr(a);
-				depth--;
-			}
-		}
+	struct location_info
+	{
+		unsigned depth = 0;
+		int ind = 0;
 	};
 
-	Z3_ast Z3_API Z3_find_term(Z3_context c, Z3_ast _a, unsigned kind, unsigned depth, bool is_quantifier) {
+	Z3_ast Z3_API Z3_find_term(Z3_context c,
+							   Z3_ast a,
+							   unsigned kind,
+							   unsigned depth,
+							   bool search_quantifier,
+							   unsigned path_length,
+							   int path[])
+	{
 		Z3_TRY;
-		LOG_Z3_find_term(c, _a, kind, depth, is_quantifier);
+		LOG_Z3_find_term(c, a, kind, depth, search_quantifier, path_length, path);
 		RESET_ERROR_CODE();
-		Z3_ast result;
-		find_proc fp(result, is_quantifier? (quantifier_kind)kind : (decl_kind)kind, depth, is_quantifier);
-		expr_mark visited;
-		app* a = to_app(_a);
-		for_each_expr(fp, visited, a);
-		RETURN_Z3(result);
+		expr* result;
+		unsigned cur_depth = 0;
+		decl_kind decl_kind = to_decl_kind((Z3_decl_kind)kind);
+		vector<std::tuple<expr*, location_info>> expr_stack;
+		expr_stack.push_back(std::make_pair(to_expr(a), location_info()));
+		while (depth >= 0 && !expr_stack.empty())
+		{
+			std::tuple<expr*, location_info> cur_tup = expr_stack.back();
+			expr* cur_expr = std::get<0>(cur_tup);
+			expr_stack.pop_back();
+			location_info loc_info = std::get<1>(cur_tup);
+			path[loc_info.depth] = loc_info.ind;
+			if (is_app(cur_expr))
+			{
+				app* cur_app = to_app(cur_expr);
+				if (!search_quantifier &&
+					(decl_kind == OP_TRUE ||
+					is_app_of(cur_app, mk_c(c)->get_basic_fid(), decl_kind)))
+				{
+					result = cur_expr;
+					if (depth == 0)
+						break;
+					depth--;
+				}
+				for (int i = 0; i < cur_app->get_num_args(); i++)
+				{
+					loc_info = {cur_depth, i};
+					++cur_depth;
+					expr_stack.push_back(std::make_pair(cur_app->get_arg(i), loc_info));
+				}
+			}
+			else if (is_quantifier(cur_expr))
+			{
+				quantifier *cur_q = to_quantifier(cur_expr);
+				if (search_quantifier)
+				{
+					result = cur_expr;
+					if (depth == 0)
+						break;
+					depth--;
+				}
+				expr* body = cur_q->get_expr();
+				loc_info = {cur_depth, 0};
+				++cur_depth;
+				expr_stack.push_back(std::make_pair(body, loc_info));
+			}
+			else
+				continue;
+		}
+		path[cur_depth] = -1;
+		// std::cout << mk_pp(result, mk_c(c)->m()) << std::endl;
+		RETURN_Z3(of_expr(result));
 		Z3_CATCH_RETURN(nullptr);
 	}
 
-	class set_proc {
-	public:
-		Z3_context ctx;
-		decl_kind kind;
-		unsigned depth;
-		bool is_quantifier;
-		Z3_ast new_term;
-
-		set_proc(Z3_context c, decl_kind k, unsigned d, bool iq, Z3_ast nt) :
-			ctx(c), kind(k), depth(d), is_quantifier(iq), new_term(nt) {}
-
-		void operator()(var * v) {}
-
-		void operator()(quantifier * q) {
-			if (depth < 0)
-				return;
-			if (kind == OP_TRUE && is_quantifier) {
-				if (depth==0)
-					q = (quantifier*)new_term;
-				depth--;
-			}
-		}
-
-		void operator()(app* a) {
-			if (depth < 0)
-				return;
-			if ((kind == OP_TRUE && !is_quantifier) || a->get_decl_kind() == kind) {
-				if (depth==0)
-					a = to_app(new_term);
-				depth--;
-			}
-		}
-	};
 
 	Z3_ast Z3_API Z3_set_term(Z3_context c,
-							  Z3_ast _a,
-							  unsigned kind,
-							  unsigned depth,
-							  bool is_quantifier,
-							  Z3_ast term) {
+							  Z3_ast cur_ast,
+							  Z3_ast new_term,
+							  unsigned cur_depth,
+							  unsigned path_length,
+							  int path[])
+	{
 		Z3_TRY;
-		LOG_Z3_set_term(c, _a, kind, depth, is_quantifier, term);
+		LOG_Z3_set_term(c, cur_ast, new_term, cur_depth, path_length, path);
 		RESET_ERROR_CODE();
-		set_proc sp(c, is_quantifier? (quantifier_kind)kind : (decl_kind)kind, depth, is_quantifier, term);
-		expr_mark visited;
-		app* a = to_app(_a);
-		for_each_expr(sp, visited, a);
+		Z3_ast result;
+		expr* cur_expr = to_expr(cur_ast);
+		ast_manager& m = mk_c(c)->m();
+		if (is_app(cur_expr))
+		{
+			app *cur_app = to_app(cur_expr);
+			if (path[cur_depth + 1] == -1)
+				result = new_term;
+			else
+			{
+				unsigned target_ind = path[cur_depth];
+				expr* child = cur_app->get_arg(target_ind);
+				Z3_ast new_child = Z3_set_term(c, of_expr(child), new_term, ++cur_depth, path_length - 1, path);
+				unsigned children_num = cur_app->get_num_args();
+				expr* children[children_num];
+				for (int i = 0; i < children_num; i++)
+				{
+					if (i == target_ind)
+						children[i] = to_expr(new_child);
+					children[i] = cur_app->get_arg(i);
+				}
+				result = of_expr(m.mk_app(cur_app->get_decl(), children_num, children));
+			}
+		}
+		else if (is_quantifier(cur_expr))
+		{
+			quantifier *cur_q = to_quantifier(cur_expr);
+			if (path[cur_depth + 1] == -1)
+				result = new_term;
+			else
+			{
+				expr* child = cur_q->get_expr();
+				Z3_ast new_child = Z3_set_term(c, of_expr(child), new_term, ++cur_depth, path_length - 1, path);
+				result = of_expr(m.update_quantifier(cur_q, to_expr(new_child)));
+			}
+		}
+		RETURN_Z3(result);
 		Z3_CATCH_RETURN(nullptr);
 	}
 
