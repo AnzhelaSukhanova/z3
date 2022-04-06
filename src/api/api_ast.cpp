@@ -845,10 +845,11 @@ extern "C" {
 	std::tuple<family_id, decl_kind> to_decl_kind(Z3_context c, Z3_decl_kind kind)
 	{
 		family_id fid = mk_c(c)->get_basic_fid();
-		decl_kind dk = OP_AND;
+		decl_kind dk = OP_TRUE;
 		switch(kind)
 		{
-			case Z3_OP_AND: break;
+			case Z3_OP_TRUE: break;
+			case Z3_OP_AND: dk = OP_AND;
 			case Z3_OP_OR: dk = OP_OR;
 			case Z3_OP_LE: fid = mk_c(c)->get_arith_fid(); dk = OP_LE;
 			case Z3_OP_GE: fid = mk_c(c)->get_arith_fid(); dk = OP_GE;
@@ -865,16 +866,30 @@ extern "C" {
 		int ind = 0;
 	};
 
+	uint64_t Z3_API Z3_mk_int_vector(Z3_context c) {
+		LOG_Z3_mk_int_vector(c);
+		RESET_ERROR_CODE();
+		auto* int_vec = alloc(vector<int>);
+		return reinterpret_cast<uint64_t>(int_vec);
+	}
+
+	void Z3_API Z3_free_int_vector(Z3_context c, uint64_t ptr) {
+		LOG_Z3_free_int_vector(c, ptr);
+		RESET_ERROR_CODE();
+		auto *int_vec = reinterpret_cast<vector<int> *>(ptr);
+		dealloc(int_vec);
+	}
+
 	Z3_ast Z3_API Z3_find_term(Z3_context c,
 							   Z3_ast a,
 							   unsigned kind,
 							   unsigned depth,
 							   bool is_removing,
 							   bool search_quantifier,
-							   int* path_ptr)
+							   uint64_t path)
 	{
 		Z3_TRY;
-		LOG_Z3_find_term(c, a, kind, depth, is_removing, search_quantifier, path_ptr);
+		LOG_Z3_find_term(c, a, kind, depth, is_removing, search_quantifier, path);
 		RESET_ERROR_CODE();
 		expr* result;
 		unsigned cur_depth = 0;
@@ -882,7 +897,7 @@ extern "C" {
 		family_id fid = std::get<0>(kind_info);
 		decl_kind decl_kind = std::get<1>(kind_info);
 		vector<std::tuple<expr*, location_info>> expr_stack;
-		vector<int> cur_path;
+		vector<int>* cur_path = reinterpret_cast<vector<int>*>(path);
 		expr_stack.push_back(std::make_pair(to_expr(a), location_info()));
 		while (depth >= 0 && !expr_stack.empty())
 		{
@@ -890,8 +905,8 @@ extern "C" {
 			expr* cur_expr = std::get<0>(cur_tup);
 			expr_stack.pop_back();
 			location_info loc_info = std::get<1>(cur_tup);
-			if (cur_path.size() < loc_info.depth + 1)
-				cur_path.push_back(loc_info.ind);
+			if (cur_path->size() < loc_info.depth + 1)
+				cur_path->push_back(loc_info.ind);
 			else
 				cur_path[loc_info.depth] = loc_info.ind;
 			if (is_app(cur_expr))
@@ -931,13 +946,12 @@ extern "C" {
 				continue;
 		}
 		cur_path[cur_depth] = -1;
-		path_ptr = &cur_path[0];
 		// std::cout << mk_pp(result, mk_c(c)->m()) << std::endl;
 		RETURN_Z3(of_expr(result));
 		Z3_CATCH_RETURN(nullptr);
 	}
 
-	expr* set_term(Z3_context c, expr* cur_ast, expr* new_term, unsigned cur_depth, int* path_ptr)
+	expr* set_term(Z3_context c, expr* cur_ast, expr* new_term, unsigned cur_depth, vector<int>& path)
 	{
 		expr* result;
 		expr* cur_expr = to_expr(cur_ast);
@@ -945,10 +959,10 @@ extern "C" {
 		if (is_app(cur_expr))
 		{
 			app *cur_app = to_app(cur_expr);
-			unsigned target_ind = path_ptr[cur_depth];
+			unsigned target_ind = path[cur_depth];
 			expr *child = cur_app->get_arg(target_ind);
-			expr *new_child = path_ptr[cur_depth + 1] == -1 ?
-							  set_term(c, child, new_term, ++cur_depth, path_ptr) :
+			expr *new_child = path[cur_depth + 1] == -1 ?
+							  set_term(c, child, new_term, ++cur_depth, path) :
 							  new_term;
 			unsigned children_num = cur_app->get_num_args();
 			expr *children[children_num];
@@ -964,8 +978,8 @@ extern "C" {
 		{
 			quantifier *cur_q = to_quantifier(cur_expr);
 			expr *child = cur_q->get_expr();
-			expr *new_child = path_ptr[cur_depth + 1] == -1 ?
-							  set_term(c, child, new_term, ++cur_depth, path_ptr) :
+			expr *new_child = path[cur_depth + 1] == -1 ?
+							  set_term(c, child, new_term, ++cur_depth, path) :
 							  new_term;
 			result = m.update_quantifier(cur_q, to_expr(new_child));
 		}
@@ -978,12 +992,13 @@ extern "C" {
 							  Z3_ast cur_ast,
 							  Z3_ast new_term,
 							  unsigned cur_depth,
-							  int* path_ptr)
+							  uint64_t path)
 	{
 		Z3_TRY;
-		LOG_Z3_set_term(c, cur_ast, new_term, cur_depth, path_ptr);
+		LOG_Z3_set_term(c, cur_ast, new_term, cur_depth, path);
 		RESET_ERROR_CODE();
-		expr* result = set_term(c, to_expr(cur_ast), to_expr(new_term), cur_depth, path_ptr);
+		vector<int>* cur_path = reinterpret_cast<vector<int>*>(path);
+		expr* result = set_term(c, to_expr(cur_ast), to_expr(new_term), cur_depth, *cur_path);
 		RETURN_Z3(of_expr(result));
 		Z3_CATCH_RETURN(nullptr);
 	}

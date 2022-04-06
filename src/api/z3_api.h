@@ -5234,9 +5234,19 @@ extern "C" {
     Z3_ast Z3_API Z3_update_term(Z3_context c, Z3_ast a, unsigned num_args, Z3_ast const args[]);
 
 	/**
+ 		def_API('Z3_mk_int_vector', UINT64, ( _in(CONTEXT), ))
+ 	*/
+	uint64_t Z3_API Z3_mk_int_vector(Z3_context c);
+
+	/**
+ 		def_API('Z3_free_int_vector', VOID, (_in(CONTEXT), _in(UINT64)))
+ 	*/
+	void Z3_API Z3_free_int_vector(Z3_context c, uint64_t);
+
+	/**
 	 	\brief .
 
-		def_API('Z3_find_term', AST, (_in(CONTEXT), _in(AST), _in(UINT), _in(UINT), _in(BOOL), _in(BOOL), _out(INT)))
+		def_API('Z3_find_term', AST, (_in(CONTEXT), _in(AST), _in(UINT), _in(UINT), _in(BOOL), _in(BOOL), _out(UINT64)))
 	*/
 	Z3_ast Z3_API Z3_find_term(Z3_context c,
 							   Z3_ast a,
@@ -5244,14 +5254,14 @@ extern "C" {
 							   unsigned depth,
 							   bool is_removing,
 							   bool search_quantifier,
-							   int* path);
+							   uint64_t path);
 
 	/**
 	 	\brief .
 
-		def_API('Z3_set_term', AST, (_in(CONTEXT), _in(AST), _in(AST), _in(UINT), _out(INT)))
+		def_API('Z3_set_term', AST, (_in(CONTEXT), _in(AST), _in(AST), _in(UINT), _in(UINT64)))
 	*/
-	Z3_ast Z3_API Z3_set_term(Z3_context c, Z3_ast cur_ast, Z3_ast new_term, unsigned cur_depth, int* path);
+	Z3_ast Z3_API Z3_set_term(Z3_context c, Z3_ast cur_ast, Z3_ast new_term, unsigned cur_depth, uint64_t path);
 
     /**
        \brief Substitute every occurrence of \ccode{from[i]} in \c a with \ccode{to[i]}, for \c i smaller than \c num_exprs.
