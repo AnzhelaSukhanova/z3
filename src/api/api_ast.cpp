@@ -849,12 +849,12 @@ extern "C" {
 		switch(kind)
 		{
 			case Z3_OP_TRUE: break;
-			case Z3_OP_AND: dk = OP_AND;
-			case Z3_OP_OR: dk = OP_OR;
-			case Z3_OP_LE: fid = mk_c(c)->get_arith_fid(); dk = OP_LE;
-			case Z3_OP_GE: fid = mk_c(c)->get_arith_fid(); dk = OP_GE;
-			case Z3_OP_LT: fid = mk_c(c)->get_arith_fid(); dk = OP_LT;
-			case Z3_OP_GT: fid = mk_c(c)->get_arith_fid(); dk = OP_GT;
+			case Z3_OP_AND: dk = OP_AND; break;
+			case Z3_OP_OR: dk = OP_OR; break;
+			case Z3_OP_LE: fid = mk_c(c)->get_arith_fid(); dk = OP_LE; break;
+			case Z3_OP_GE: fid = mk_c(c)->get_arith_fid(); dk = OP_GE; break;
+			case Z3_OP_LT: fid = mk_c(c)->get_arith_fid(); dk = OP_LT; break;
+			case Z3_OP_GT: fid = mk_c(c)->get_arith_fid(); dk = OP_GT; break;
 			default: mk_c(c)->m().raise_exception("Unsupported Z3_decl_kind.");
 		}
 		return std::make_pair(fid, dk);
