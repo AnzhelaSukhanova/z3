@@ -905,7 +905,7 @@ extern "C" {
 			expr* cur_expr = std::get<0>(cur_tup);
 			expr_stack.pop_back();
 			location_info loc_info = std::get<1>(cur_tup);
-			cur_path->setx(loc_info.depth, loc_info.ind, loc_info.depth + 1);
+			cur_path->setx(loc_info.depth, loc_info.ind, 0);
 			if (is_app(cur_expr))
 			{
 				app* cur_app = to_app(cur_expr);
@@ -942,7 +942,7 @@ extern "C" {
 			else
 				continue;
 		}
-		cur_path[cur_depth] = -1;
+		cur_path->setx(cur_depth, -1, 0);
 		// std::cout << mk_pp(result, mk_c(c)->m()) << std::endl;
 		RETURN_Z3(of_expr(result));
 		Z3_CATCH_RETURN(nullptr);
