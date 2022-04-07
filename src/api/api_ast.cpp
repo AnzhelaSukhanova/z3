@@ -893,22 +893,19 @@ extern "C" {
 		RESET_ERROR_CODE();
 		expr* result;
 		unsigned cur_depth = 0;
-		std::tuple<family_id, decl_kind> kind_info = to_decl_kind(c, (Z3_decl_kind)kind);
+		auto&& kind_info = to_decl_kind(c, (Z3_decl_kind)kind);
 		family_id fid = std::get<0>(kind_info);
 		decl_kind decl_kind = std::get<1>(kind_info);
 		vector<std::tuple<expr*, location_info>> expr_stack;
-		vector<int>* cur_path = reinterpret_cast<vector<int>*>(path);
+		auto&& cur_path = reinterpret_cast<vector<int>*>(path);
 		expr_stack.push_back(std::make_pair(to_expr(a), location_info()));
 		while (depth >= 0 && !expr_stack.empty())
 		{
-			std::tuple<expr*, location_info> cur_tup = expr_stack.back();
+			auto&& cur_tup = expr_stack.back();
 			expr* cur_expr = std::get<0>(cur_tup);
 			expr_stack.pop_back();
 			location_info loc_info = std::get<1>(cur_tup);
-			if (cur_path->size() < loc_info.depth + 1)
-				cur_path->push_back(loc_info.ind);
-			else
-				cur_path[loc_info.depth] = loc_info.ind;
+			cur_path->setx(loc_info.depth, loc_info.ind, loc_info.depth + 1);
 			if (is_app(cur_expr))
 			{
 				app* cur_app = to_app(cur_expr);
@@ -997,7 +994,7 @@ extern "C" {
 		Z3_TRY;
 		LOG_Z3_set_term(c, cur_ast, new_term, cur_depth, path);
 		RESET_ERROR_CODE();
-		vector<int>* cur_path = reinterpret_cast<vector<int>*>(path);
+		auto&& cur_path = reinterpret_cast<vector<int>*>(path);
 		expr* result = set_term(c, to_expr(cur_ast), to_expr(new_term), cur_depth, *cur_path);
 		RETURN_Z3(of_expr(result));
 		Z3_CATCH_RETURN(nullptr);

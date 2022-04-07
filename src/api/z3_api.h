@@ -5246,7 +5246,7 @@ extern "C" {
 	/**
 	 	\brief .
 
-		def_API('Z3_find_term', AST, (_in(CONTEXT), _in(AST), _in(UINT), _in(UINT), _in(BOOL), _in(BOOL), _out(UINT64)))
+		def_API('Z3_find_term', AST, (_in(CONTEXT), _in(AST), _in(UINT), _in(UINT), _in(BOOL), _in(BOOL), _in(UINT64)))
 	*/
 	Z3_ast Z3_API Z3_find_term(Z3_context c,
 							   Z3_ast a,
