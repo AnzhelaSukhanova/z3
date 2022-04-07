@@ -5259,9 +5259,9 @@ extern "C" {
 	/**
 	 	\brief .
 
-		def_API('Z3_set_term', AST, (_in(CONTEXT), _in(AST), _in(AST), _in(UINT), _in(UINT64)))
+		def_API('Z3_set_term', AST, (_in(CONTEXT), _in(AST), _in(AST), _in(UINT64)))
 	*/
-	Z3_ast Z3_API Z3_set_term(Z3_context c, Z3_ast cur_ast, Z3_ast new_term, unsigned cur_depth, uint64_t path);
+	Z3_ast Z3_API Z3_set_term(Z3_context c, Z3_ast cur_ast, Z3_ast new_term, uint64_t path);
 
     /**
        \brief Substitute every occurrence of \ccode{from[i]} in \c a with \ccode{to[i]}, for \c i smaller than \c num_exprs.

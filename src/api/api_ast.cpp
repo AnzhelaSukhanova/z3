@@ -892,7 +892,7 @@ extern "C" {
 		LOG_Z3_find_term(c, a, kind, depth, is_removing, search_quantifier, path);
 		RESET_ERROR_CODE();
 		expr* result;
-		unsigned cur_depth = 0;
+		unsigned cur_depth;
 		auto&& kind_info = to_decl_kind(c, (Z3_decl_kind)kind);
 		family_id fid = std::get<0>(kind_info);
 		decl_kind decl_kind = std::get<1>(kind_info);
@@ -905,7 +905,9 @@ extern "C" {
 			expr* cur_expr = std::get<0>(cur_tup);
 			expr_stack.pop_back();
 			location_info loc_info = std::get<1>(cur_tup);
-			cur_path->setx(loc_info.depth, loc_info.ind, 0);
+			cur_depth = loc_info.depth;
+			cur_path->setx(cur_depth, loc_info.ind, 0);
+			++cur_depth;
 			if (is_app(cur_expr))
 			{
 				app* cur_app = to_app(cur_expr);
@@ -920,7 +922,6 @@ extern "C" {
 				for (int i = 0; i < cur_app->get_num_args(); i++)
 				{
 					loc_info = {cur_depth, i};
-					++cur_depth;
 					expr_stack.push_back(std::make_pair(cur_app->get_arg(i), loc_info));
 				}
 			}
@@ -936,7 +937,6 @@ extern "C" {
 				}
 				expr* body = cur_q->get_expr();
 				loc_info = {cur_depth, 0};
-				++cur_depth;
 				expr_stack.push_back(std::make_pair(body, loc_info));
 			}
 			else
@@ -953,21 +953,21 @@ extern "C" {
 		expr* result;
 		expr* cur_expr = to_expr(cur_ast);
 		ast_manager& m = mk_c(c)->m();
+		if (path[cur_depth] == -1)
+			return new_term;
 		if (is_app(cur_expr))
 		{
 			app *cur_app = to_app(cur_expr);
 			unsigned target_ind = path[cur_depth];
 			expr *child = cur_app->get_arg(target_ind);
-			expr *new_child = path[cur_depth + 1] == -1 ?
-							  set_term(c, child, new_term, ++cur_depth, path) :
-							  new_term;
 			unsigned children_num = cur_app->get_num_args();
 			expr *children[children_num];
 			for (int i = 0; i < children_num; i++)
 			{
 				if (i==target_ind)
-					children[i] = new_child;
-				children[i] = cur_app->get_arg(i);
+					children[i] = set_term(c, child, new_term, ++cur_depth, path);
+				else
+					children[i] = cur_app->get_arg(i);
 			}
 			result = m.mk_app(cur_app->get_decl(), children_num, children);
 		}
@@ -975,9 +975,7 @@ extern "C" {
 		{
 			quantifier *cur_q = to_quantifier(cur_expr);
 			expr *child = cur_q->get_expr();
-			expr *new_child = path[cur_depth + 1] == -1 ?
-							  set_term(c, child, new_term, ++cur_depth, path) :
-							  new_term;
+			expr *new_child = set_term(c, child, new_term, ++cur_depth, path);
 			result = m.update_quantifier(cur_q, to_expr(new_child));
 		}
 		mk_c(c)->save_ast_trail(result);
@@ -988,14 +986,13 @@ extern "C" {
 	Z3_ast Z3_API Z3_set_term(Z3_context c,
 							  Z3_ast cur_ast,
 							  Z3_ast new_term,
-							  unsigned cur_depth,
 							  uint64_t path)
 	{
 		Z3_TRY;
 		LOG_Z3_set_term(c, cur_ast, new_term, cur_depth, path);
 		RESET_ERROR_CODE();
 		auto&& cur_path = reinterpret_cast<vector<int>*>(path);
-		expr* result = set_term(c, to_expr(cur_ast), to_expr(new_term), cur_depth, *cur_path);
+		expr* result = set_term(c, to_expr(cur_ast), to_expr(new_term), 1, *cur_path);
 		RETURN_Z3(of_expr(result));
 		Z3_CATCH_RETURN(nullptr);
 	}
