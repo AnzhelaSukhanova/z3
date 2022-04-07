@@ -989,7 +989,7 @@ extern "C" {
 							  uint64_t path)
 	{
 		Z3_TRY;
-		LOG_Z3_set_term(c, cur_ast, new_term, cur_depth, path);
+		LOG_Z3_set_term(c, cur_ast, new_term, path);
 		RESET_ERROR_CODE();
 		auto&& cur_path = reinterpret_cast<vector<int>*>(path);
 		expr* result = set_term(c, to_expr(cur_ast), to_expr(new_term), 1, *cur_path);
