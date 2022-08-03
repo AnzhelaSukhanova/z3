@@ -30,6 +30,7 @@ Notes:
 #include "ast/fpa_decl_plugin.h"
 #include "tactic/tactical.h"
 #include "util/stats.h"
+#include "tactic/tactic_params.hpp"
 #include <iostream>
 
 #include "tactic/core/collect_statistics_tactic.h"
@@ -62,9 +63,9 @@ public:
     }
 
     void updt_params(params_ref const & p) override {
-		m_params.append(p);
-		tactic_params tp(p);
-		m_to_file  = p.get_bool("to_file", tp.collect_statistics_to_file());
+        m_params.append(p);
+        tactic_params tp(p);
+    	m_to_file  = p.get_bool("to_file", tp.collect_statistics_to_file());
     }
 
     void collect_param_descrs(param_descrs & r) override {
