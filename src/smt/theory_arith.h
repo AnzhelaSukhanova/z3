@@ -319,7 +319,6 @@ namespace smt {
         public:
             atom(bool_var bv, theory_var v, inf_numeral const & k, atom_kind kind);
             atom_kind get_atom_kind() const { return static_cast<atom_kind>(m_atom_kind); }
-            ~atom() override {}
             inline inf_numeral const & get_k() const { return m_k; }
             bool_var get_bool_var() const { return m_bvar; }
             bool is_true() const { return m_is_true; }
@@ -341,7 +340,6 @@ namespace smt {
                 m_rhs(rhs) {
                 SASSERT(m_lhs->get_root() == m_rhs->get_root());
             }
-            ~eq_bound() override {}
             bool has_justification() const override { return true; }
             void push_justification(antecedents& a, numeral const& coeff, bool proofs_enabled) override {
                 SASSERT(m_lhs->get_root() == m_rhs->get_root());
@@ -357,7 +355,6 @@ namespace smt {
             friend class theory_arith;
         public:
             derived_bound(theory_var v, inf_numeral const & val, bound_kind k):bound(v, val, k, false) {}
-            ~derived_bound() override {}
             literal_vector const& lits() const { return m_lits; }
             eq_vector const& eqs() const { return m_eqs; }
             bool has_justification() const override { return true; }
@@ -374,7 +371,6 @@ namespace smt {
             friend class theory_arith;
         public:
             justified_derived_bound(theory_var v, inf_numeral const & val, bound_kind k):derived_bound(v, val, k) {}
-            ~justified_derived_bound() override {}
             bool has_justification() const override { return true; }
             void push_justification(antecedents& a, numeral const& coeff, bool proofs_enabled) override;
             void push_lit(literal l, numeral const& coeff) override;
@@ -602,9 +598,11 @@ namespace smt {
         void add_row_entry(unsigned r_id, numeral const & coeff, theory_var v);
         uint_set& row_vars();
         class scoped_row_vars;
-        
+
+        void check_app(expr* e, expr* n);
         void internalize_internal_monomial(app * m, unsigned r_id);
         theory_var internalize_add(app * n);
+        theory_var internalize_sub(app * n);
         theory_var internalize_mul_core(app * m);
         theory_var internalize_mul(app * m);
         theory_var internalize_div(app * n);
@@ -972,7 +970,7 @@ namespace smt {
         /**
            \brief A monomial is 'pure' if does not have a numeric coefficient.
         */
-        bool is_pure_monomial(expr * m) const { return m_util.is_mul(m) && (to_app(m)->get_num_args() > 2 || !m_util.is_numeral(to_app(m)->get_arg(0))); }
+        bool is_pure_monomial(expr * m) const;
         bool is_pure_monomial(theory_var v) const { return is_pure_monomial(get_enode(v)->get_expr()); }
         void mark_var(theory_var v, svector<theory_var> & vars, var_set & already_found);
         void mark_dependents(theory_var v, svector<theory_var> & vars, var_set & already_found, row_set & already_visited_rows);

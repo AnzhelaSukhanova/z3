@@ -30,7 +30,7 @@ Notes:
 #include "ast/fpa_decl_plugin.h"
 #include "tactic/tactical.h"
 #include "util/stats.h"
-#include "tactic/tactic_params.hpp"
+#include <iostream>
 
 #include "tactic/core/collect_statistics_tactic.h"
 
@@ -54,8 +54,6 @@ public:
         m(m),
         m_params(p) {
     }
-
-    ~collect_statistics_tactic() override {}
 
     char const* name() const override { return "collect_statistics"; }
 

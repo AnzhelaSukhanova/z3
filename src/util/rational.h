@@ -157,6 +157,12 @@ public:
     friend inline rational numerator(rational const & r) { rational result; m().get_numerator(r.m_val, result.m_val); return result; }
     
     friend inline rational denominator(rational const & r) { rational result; m().get_denominator(r.m_val, result.m_val); return result; }
+
+    friend inline rational inv(rational const & r) {
+        rational result;
+        m().inv(r.m_val, result.m_val);
+        return result;
+    }
     
     rational & operator+=(rational const & r) { 
         m().add(m_val, r.m_val, m_val);
@@ -232,9 +238,15 @@ public:
         rational::m().mod(r1.m_val, r2.m_val, r.m_val);
         return r;
     }
-
+    
     friend inline void mod(rational const & r1, rational const & r2, rational & r) {
         rational::m().mod(r1.m_val, r2.m_val, r.m_val);
+    }
+
+    friend inline rational mod2k(rational const & a, unsigned k) {
+        if (a.is_nonneg() && a.is_int() && a.bitsize() <= k) 
+            return a;
+        return mod(a, power_of_two(k));
     }
 
     friend inline rational operator%(rational const & r1, rational const & r2) {
@@ -337,11 +349,16 @@ public:
 
     static rational power_of_two(unsigned k);
 
-    bool is_power_of_two(unsigned & shift) {
+    bool is_power_of_two(unsigned & shift) const {
+        return m().is_power_of_two(m_val, shift);
+    }
+    
+    bool is_power_of_two() const {
+        unsigned shift = 0;
         return m().is_power_of_two(m_val, shift);
     }
 
-    bool mult_inverse(unsigned num_bits, rational & result);
+    bool mult_inverse(unsigned num_bits, rational & result) const;
 
     static rational const & zero() {
         return m_zero;

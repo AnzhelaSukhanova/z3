@@ -2,20 +2,13 @@
 cmake_minimum_required(VERSION 3.4)
 
 set(CMAKE_USER_MAKE_RULES_OVERRIDE_CXX "${CMAKE_CURRENT_SOURCE_DIR}/cmake/cxx_compiler_flags_overrides.cmake")
-project(Z3 VERSION 4.8.16.0 LANGUAGES CXX)
+project(Z3 VERSION 4.11.0.0 LANGUAGES CXX)
 
 ################################################################################
 # Project version
 ################################################################################
 set(Z3_FULL_VERSION_STR "${Z3_VERSION}") # Note this might be modified
 message(STATUS "Z3 version ${Z3_VERSION}")
-
-################################################################################
-# Set various useful variables depending on CMake version
-################################################################################
-
-set(ADD_CUSTOM_COMMAND_USES_TERMINAL_ARG "USES_TERMINAL")
-set(ADD_CUSTOM_TARGET_USES_TERMINAL_ARG "USES_TERMINAL")
 
 ################################################################################
 # Message for polluted source tree sanity checks
@@ -160,7 +153,7 @@ list(APPEND Z3_COMPONENT_CXX_DEFINES $<$<CONFIG:RelWithDebInfo>:_EXTERNAL_RELEAS
 ################################################################################
 # Find Python
 ################################################################################
-find_package(PythonInterp REQUIRED)
+find_package(PythonInterp 3 REQUIRED)
 message(STATUS "PYTHON_EXECUTABLE: ${PYTHON_EXECUTABLE}")
 
 ################################################################################
@@ -188,9 +181,6 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
   message(STATUS "Platform: Linux")
   list(APPEND Z3_COMPONENT_CXX_DEFINES "-D_LINUX_")
-  if (TARGET_ARCHITECTURE STREQUAL "x86_64")
-    list(APPEND Z3_COMPONENT_CXX_DEFINES "-D_USE_THREAD_LOCAL")
-  endif()
 elseif (CMAKE_SYSTEM_NAME STREQUAL "Android")
   message(STATUS "Platform: Android")
   list(APPEND Z3_COMPONENT_CXX_DEFINES "-D_ANDROID_")
@@ -198,7 +188,9 @@ elseif (CMAKE_SYSTEM_NAME MATCHES "GNU")
   message(STATUS "Platform: GNU/Hurd")
   list(APPEND Z3_COMPONENT_CXX_DEFINES "-D_HURD_")
 elseif (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
-  # Does macOS really not need any special flags?
+  if (TARGET_ARCHITECTURE STREQUAL "arm64")
+    set(CMAKE_OSX_ARCHITECTURES "arm64")
+  endif()
   message(STATUS "Platform: Darwin")
 elseif (CMAKE_SYSTEM_NAME MATCHES "FreeBSD")
   message(STATUS "Platform: FreeBSD")
@@ -228,7 +220,7 @@ else()
   message(FATAL_ERROR "Platform \"${CMAKE_SYSTEM_NAME}\" not recognised")
 endif()
 
-list(APPEND Z3_COMPONENT_EXTRA_INCLUDE_DIRS 
+list(APPEND Z3_COMPONENT_EXTRA_INCLUDE_DIRS
   "${PROJECT_BINARY_DIR}/src"
   "${PROJECT_SOURCE_DIR}/src"
 )
@@ -291,8 +283,8 @@ if ((TARGET_ARCHITECTURE STREQUAL "x86_64") OR (TARGET_ARCHITECTURE STREQUAL "i6
     set(SSE_FLAGS "-mfpmath=sse" "-msse" "-msse2")
   elseif (CMAKE_CXX_COMPILER_ID MATCHES "Intel")
     set(SSE_FLAGS "-mfpmath=sse" "-msse" "-msse2")
-    # Intel's compiler requires linking with libiomp5 
-    list(APPEND Z3_DEPENDENT_LIBS "iomp5") 
+    # Intel's compiler requires linking with libiomp5
+    list(APPEND Z3_DEPENDENT_LIBS "iomp5")
   elseif (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
     set(SSE_FLAGS "/arch:SSE2")
   else()
@@ -347,14 +339,6 @@ option(Z3_BUILD_LIBZ3_SHARED "Build libz3 as a shared library if true, otherwise
 
 
 ################################################################################
-# Symbol visibility
-################################################################################
-if (NOT MSVC)
-  z3_add_cxx_flag("-fvisibility=hidden" REQUIRED)
-  z3_add_cxx_flag("-fvisibility-inlines-hidden" REQUIRED)
-endif()
-
-################################################################################
 # Tracing
 ################################################################################
 option(Z3_ENABLE_TRACING_FOR_NON_DEBUG "Enable tracing in non-debug builds." OFF)
@@ -364,20 +348,6 @@ else()
   # Tracing is always enabled in debug builds
   list(APPEND Z3_COMPONENT_CXX_DEFINES $<$<CONFIG:Debug>:_TRACE>)
 endif()
-
-################################################################################
-# Position independent code
-################################################################################
-# This is required because code built in the components will end up in a shared
-# library.
-
-# Avoid adding -fPIC compiler switch if we compile with MSVC (which does not
-# support the flag) or if we target Windows, which generally does not use
-# position independent code for native code shared libraries (DLLs).
-if (NOT (MSVC OR MINGW OR WIN32))
-  z3_add_cxx_flag("-fPIC" REQUIRED)
-endif()
-
 
 ################################################################################
 # Link time optimization
@@ -505,7 +475,7 @@ add_custom_target(uninstall
   COMMAND
   "${CMAKE_COMMAND}" -P "${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake"
   COMMENT "Uninstalling..."
-  ${ADD_CUSTOM_COMMAND_USES_TERMINAL_ARG}
+  USES_TERMINAL
   VERBATIM
 )
 
@@ -622,7 +592,7 @@ install(
 ################################################################################
 # Examples
 ################################################################################
-cmake_dependent_option(Z3_ENABLE_EXAMPLE_TARGETS 
+cmake_dependent_option(Z3_ENABLE_EXAMPLE_TARGETS
     "Build Z3 api examples" ON
     "CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR" OFF)
 if (Z3_ENABLE_EXAMPLE_TARGETS)

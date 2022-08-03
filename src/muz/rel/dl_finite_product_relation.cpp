@@ -64,7 +64,7 @@ namespace datalog {
     }
 
     symbol finite_product_relation_plugin::get_name(relation_plugin & inner_plugin) {
-        std::string str = std::string("fpr_")+inner_plugin.get_name().bare_str();
+        std::string str = std::string("fpr_")+inner_plugin.get_name().str();
         return symbol(str.c_str());
     }
 
@@ -793,8 +793,6 @@ namespace datalog {
                 m_src(src),
                 m_delta_indexes(delta_indexes),
                 m_delta_rels(delta_rels) {}
-
-            ~union_mapper() override {}
 
             bool operator()(table_element * func_columns) override {
                 relation_base & otgt_orig = m_tgt.get_inner_rel(func_columns[0]);

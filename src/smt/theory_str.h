@@ -51,7 +51,6 @@ public:
     str_value_factory(ast_manager & m, family_id fid) :
         value_factory(m, fid),
         u(m), delim("!"), m_next(0) {}
-    ~str_value_factory() override {}
     expr * get_some_value(sort * s) override {
         return u.str.mk_string("some value");
     }
@@ -93,7 +92,6 @@ class binary_search_trail : public trail {
 public:
     binary_search_trail(obj_map<expr, ptr_vector<expr> > & target, expr * entry) :
         target(target), entry(entry) {}
-    ~binary_search_trail() override {}
     void undo() override {
         TRACE("t_str_binary_search", tout << "in binary_search_trail::undo()" << std::endl;);
         if (target.contains(entry)) {
@@ -393,6 +391,8 @@ protected:
     // does not introduce equalities when they weren't enforced.
     unsigned m_unused_id;
 
+    const char* newOverlapStr = "!!NewOverlapAssumption!!";
+
     // terms we couldn't go through set_up_axioms() with because they weren't internalized
     expr_ref_vector m_delayed_axiom_setup_terms;
 
@@ -492,7 +492,7 @@ protected:
     obj_map<expr, std::tuple<rational, expr*, expr*>> fixed_length_lesson; //keep track of information for the lesson
     unsigned preprocessing_iteration_count; // number of attempts we've made to solve by preprocessing length information
     obj_map<expr, zstring> candidate_model;
-    
+
     stats m_stats;
 
 protected:
@@ -777,4 +777,3 @@ protected:
 };
 
 };
-

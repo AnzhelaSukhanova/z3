@@ -21,7 +21,7 @@ Notes:
 #pragma once
 
 #include<cassert>
-#include<iostream>
+#include<ostream>
 #include<string>
 #include<sstream>
 #include<memory>
@@ -57,6 +57,8 @@ namespace z3 {
     class param_descrs;
     class ast;
     class sort;
+    class constructors;
+    class constructor_list;
     class func_decl;
     class expr;
     class solver;
@@ -313,6 +315,34 @@ namespace z3 {
         */
         func_decl tuple_sort(char const * name, unsigned n, char const * const * names, sort const* sorts, func_decl_vector & projs);
 
+
+        /**
+           \brief Create a recursive datatype over a single sort.
+           \c name is the name of the recursive datatype
+           \c n - the numer of constructors of the datatype
+           \c cs - the \c n constructors used to define the datatype
+
+           References to the datatype can be created using \ref datatype_sort.
+         */
+        sort datatype(symbol const& name, constructors const& cs);
+
+        /**
+           \brief Create a set of mutually recursive datatypes.
+           \c n - number of recursive datatypes
+           \c names - array of names of length n
+           \c cons - array of constructor lists of length n
+        */
+        sort_vector datatypes(unsigned n, symbol const* names,
+                              constructor_list *const* cons);
+                       
+
+        /**
+           \brief a reference to a recursively defined datatype.
+           Expect that it gets defined as a \ref datatype.
+        */
+        sort datatype_sort(symbol const& name);
+
+            
         /**
            \brief create an uninterpreted sort with the name given by the string or symbol.
          */
@@ -459,6 +489,7 @@ namespace z3 {
         }
         ~param_descrs() { Z3_param_descrs_dec_ref(ctx(), m_descrs); }
         static param_descrs simplify_param_descrs(context& c) { return param_descrs(c, Z3_simplify_get_param_descrs(c)); }
+        static param_descrs global_param_descrs(context& c) { return param_descrs(c, Z3_get_global_param_descrs(c)); }
 
         unsigned size() { return Z3_param_descrs_size(ctx(), m_descrs); }
         symbol name(unsigned i) { return symbol(ctx(), Z3_param_descrs_get_name(ctx(), m_descrs, i)); }
@@ -1359,6 +1390,7 @@ namespace z3 {
 
         friend expr operator~(expr const & a);
         expr extract(unsigned hi, unsigned lo) const { Z3_ast r = Z3_mk_extract(ctx(), hi, lo, *this); ctx().check_error(); return expr(ctx(), r); }
+        expr bit2bool(unsigned i) const { Z3_ast r = Z3_mk_bit2bool(ctx(), i, *this); ctx().check_error(); return expr(ctx(), r); }
         unsigned lo() const { assert (is_app() && Z3_get_decl_num_parameters(ctx(), decl()) == 2); return static_cast<unsigned>(Z3_get_decl_int_parameter(ctx(), decl(), 1)); }
         unsigned hi() const { assert (is_app() && Z3_get_decl_num_parameters(ctx(), decl()) == 2); return static_cast<unsigned>(Z3_get_decl_int_parameter(ctx(), decl(), 0)); }
 
@@ -2333,7 +2365,7 @@ namespace z3 {
 
     inline expr pble(expr_vector const& es, int const* coeffs, int bound) {
         assert(es.size() > 0);
-        context& ctx = es[0].ctx();
+        context& ctx = es[0u].ctx();
         array<Z3_ast> _es(es);
         Z3_ast r = Z3_mk_pble(ctx, _es.size(), _es.ptr(), coeffs, bound);
         ctx.check_error();
@@ -2341,7 +2373,7 @@ namespace z3 {
     }
     inline expr pbge(expr_vector const& es, int const* coeffs, int bound) {
         assert(es.size() > 0);
-        context& ctx = es[0].ctx();
+        context& ctx = es[0u].ctx();
         array<Z3_ast> _es(es);
         Z3_ast r = Z3_mk_pbge(ctx, _es.size(), _es.ptr(), coeffs, bound);
         ctx.check_error();
@@ -2349,7 +2381,7 @@ namespace z3 {
     }
     inline expr pbeq(expr_vector const& es, int const* coeffs, int bound) {
         assert(es.size() > 0);
-        context& ctx = es[0].ctx();
+        context& ctx = es[0u].ctx();
         array<Z3_ast> _es(es);
         Z3_ast r = Z3_mk_pbeq(ctx, _es.size(), _es.ptr(), coeffs, bound);
         ctx.check_error();
@@ -2357,7 +2389,7 @@ namespace z3 {
     }
     inline expr atmost(expr_vector const& es, unsigned bound) {
         assert(es.size() > 0);
-        context& ctx = es[0].ctx();
+        context& ctx = es[0u].ctx();
         array<Z3_ast> _es(es);
         Z3_ast r = Z3_mk_atmost(ctx, _es.size(), _es.ptr(), bound);
         ctx.check_error();
@@ -2365,7 +2397,7 @@ namespace z3 {
     }
     inline expr atleast(expr_vector const& es, unsigned bound) {
         assert(es.size() > 0);
-        context& ctx = es[0].ctx();
+        context& ctx = es[0u].ctx();
         array<Z3_ast> _es(es);
         Z3_ast r = Z3_mk_atleast(ctx, _es.size(), _es.ptr(), bound);
         ctx.check_error();
@@ -2373,7 +2405,7 @@ namespace z3 {
     }
     inline expr sum(expr_vector const& args) {
         assert(args.size() > 0);
-        context& ctx = args[0].ctx();
+        context& ctx = args[0u].ctx();
         array<Z3_ast> _args(args);
         Z3_ast r = Z3_mk_add(ctx, _args.size(), _args.ptr());
         ctx.check_error();
@@ -2382,7 +2414,7 @@ namespace z3 {
 
     inline expr distinct(expr_vector const& args) {
         assert(args.size() > 0);
-        context& ctx = args[0].ctx();
+        context& ctx = args[0u].ctx();
         array<Z3_ast> _args(args);
         Z3_ast r = Z3_mk_distinct(ctx, _args.size(), _args.ptr());
         ctx.check_error();
@@ -2411,14 +2443,14 @@ namespace z3 {
         Z3_ast r;
         assert(args.size() > 0);
         if (args.size() == 1) {
-            return args[0];
+            return args[0u];
         }
-        context& ctx = args[0].ctx();
+        context& ctx = args[0u].ctx();
         array<Z3_ast> _args(args);
-        if (Z3_is_seq_sort(ctx, args[0].get_sort())) {
+        if (Z3_is_seq_sort(ctx, args[0u].get_sort())) {
             r = Z3_mk_seq_concat(ctx, _args.size(), _args.ptr());
         }
-        else if (Z3_is_re_sort(ctx, args[0].get_sort())) {
+        else if (Z3_is_re_sort(ctx, args[0u].get_sort())) {
             r = Z3_mk_re_concat(ctx, _args.size(), _args.ptr());
         }
         else {
@@ -2448,7 +2480,7 @@ namespace z3 {
     inline expr mk_xor(expr_vector const& args) {
         if (args.empty())
             return args.ctx().bool_val(false);
-        expr r = args[0];
+        expr r = args[0u];
         for (unsigned i = 1; i < args.size(); ++i)
             r = r ^ args[i];
         return r;
@@ -2771,7 +2803,7 @@ namespace z3 {
                 assert(!m_end && !m_empty);
                 m_cube = m_solver.cube(m_vars, m_cutoff);
                 m_cutoff = 0xFFFFFFFF;
-                if (m_cube.size() == 1 && m_cube[0].is_false()) {
+                if (m_cube.size() == 1 && m_cube[0u].is_false()) {
                     m_cube = z3::expr_vector(m_solver.ctx());
                     m_end = true;
                 }
@@ -2892,7 +2924,7 @@ namespace z3 {
             if (n == 0)
                 return ctx().bool_val(true);
             else if (n == 1)
-                return operator[](0);
+                return operator[](0u);
             else {
                 array<Z3_ast> args(n);
                 for (unsigned i = 0; i < n; i++)
@@ -3005,7 +3037,7 @@ namespace z3 {
         }
         array<Z3_tactic> buffer(n);
         for (unsigned i = 0; i < n; ++i) buffer[i] = tactics[i];
-        return tactic(tactics[0].ctx(), Z3_tactic_par_or(tactics[0].ctx(), n, buffer.ptr()));
+        return tactic(tactics[0u].ctx(), Z3_tactic_par_or(tactics[0u].ctx(), n, buffer.ptr()));
     }
 
     inline tactic par_and_then(tactic const & t1, tactic const & t2) {
@@ -3327,6 +3359,98 @@ namespace z3 {
         for (unsigned i = 0; i < n; i++) { projs.push_back(func_decl(*this, _projs[i])); }
         return func_decl(*this, tuple);
     }
+
+    class constructor_list {
+        context& ctx;
+        Z3_constructor_list clist;
+    public:
+        constructor_list(constructors const& cs);
+        ~constructor_list() { Z3_del_constructor_list(ctx, clist); }
+        operator Z3_constructor_list() const { return clist; }
+    };
+    
+    class constructors {
+        friend class constructor_list;
+        context&       ctx;
+        std::vector<Z3_constructor> cons;
+        std::vector<unsigned> num_fields;
+    public:
+        constructors(context& ctx): ctx(ctx) {}
+                
+        ~constructors() {
+            for (auto con : cons)
+                Z3_del_constructor(ctx, con);           
+        }
+
+        void add(symbol const& name, symbol const& rec, unsigned n, symbol const* names, sort const* fields) {
+            array<unsigned> sort_refs(n);
+            array<Z3_sort> sorts(n);
+            array<Z3_symbol> _names(n);            
+            for (unsigned i = 0; i < n; ++i) sorts[i] = fields[i], _names[i] = names[i];
+            cons.push_back(Z3_mk_constructor(ctx, name, rec, n, _names.ptr(), sorts.ptr(), sort_refs.ptr()));
+            num_fields.push_back(n);
+        }
+
+        Z3_constructor operator[](unsigned i) const { return cons[i]; }
+
+        unsigned size() const { return (unsigned)cons.size(); }
+        
+        void query(unsigned i, func_decl& constructor, func_decl& test, func_decl_vector& accs) {
+            Z3_func_decl _constructor;
+            Z3_func_decl _test;
+            array<Z3_func_decl> accessors(num_fields[i]);
+            accs.resize(0);
+            Z3_query_constructor(ctx,
+                                 cons[i],
+                                 num_fields[i],
+                                 &_constructor,
+                                 &_test,
+                                 accessors.ptr());
+            constructor = func_decl(ctx, _constructor);
+
+            test = func_decl(ctx, _test);
+            for (unsigned j = 0; j < num_fields[i]; ++j)
+                accs.push_back(func_decl(ctx, accessors[j]));
+        }
+    };
+    
+    inline constructor_list::constructor_list(constructors const& cs): ctx(cs.ctx) {
+        array<Z3_constructor> cons(cs.size());
+        for (unsigned i = 0; i < cs.size(); ++i)
+            cons[i] = cs[i];
+        clist = Z3_mk_constructor_list(ctx, cs.size(), cons.ptr());
+    }
+
+    inline sort context::datatype(symbol const& name, constructors const& cs) {
+        array<Z3_constructor> _cs(cs.size());
+        for (unsigned i = 0; i < cs.size(); ++i) _cs[i] = cs[i];
+        Z3_sort s = Z3_mk_datatype(*this, name, cs.size(), _cs.ptr());
+        check_error();
+        return sort(*this, s);
+    }
+
+    inline sort_vector context::datatypes(
+        unsigned n, symbol const* names,
+        constructor_list *const* cons) {
+        sort_vector result(*this);
+        array<Z3_symbol> _names(n);
+        array<Z3_sort> _sorts(n);
+        array<Z3_constructor_list> _cons(n);
+        for (unsigned i = 0; i < n; ++i)
+            _names[i] = names[i], _cons[i] = *cons[i];
+        Z3_mk_datatypes(*this, n, _names.ptr(), _sorts.ptr(), _cons.ptr());
+        for (unsigned i = 0; i < n; ++i)
+            result.push_back(sort(*this, _sorts[i]));
+        return result;
+    }
+
+
+    inline sort context::datatype_sort(symbol const& name) {
+        Z3_sort s = Z3_mk_datatype_sort(*this, name);
+        check_error();
+        return sort(*this, s);            
+    }
+
 
     inline sort context::uninterpreted_sort(char const* name) {
         Z3_symbol _name = Z3_mk_string_symbol(*this, name);
@@ -3804,7 +3928,7 @@ namespace z3 {
     }
     inline expr re_intersect(expr_vector const& args) {
         assert(args.size() > 0);
-        context& ctx = args[0].ctx();
+        context& ctx = args[0u].ctx();
         array<Z3_ast> _args(args);
         Z3_ast r = Z3_mk_re_intersect(ctx, _args.size(), _args.ptr());
         ctx.check_error();
@@ -3943,11 +4067,13 @@ namespace z3 {
         typedef std::function<void(void)> final_eh_t;
         typedef std::function<void(expr const&, expr const&)> eq_eh_t;
         typedef std::function<void(expr const&)> created_eh_t;
+        typedef std::function<void(expr&, unsigned&, Z3_lbool&)> decide_eh_t;
 
         final_eh_t m_final_eh;
         eq_eh_t    m_eq_eh;
         fixed_eh_t m_fixed_eh;
         created_eh_t m_created_eh;
+        decide_eh_t m_decide_eh;
         solver*    s;
         context*   c;
         std::vector<z3::context*> subcontexts;
@@ -3964,18 +4090,23 @@ namespace z3 {
             }
         };
 
-        static void push_eh(void* p) {
+        static void push_eh(void* _p, Z3_solver_callback cb) {
+            user_propagator_base* p = static_cast<user_propagator_base*>(_p);
+            scoped_cb _cb(p, cb);
             static_cast<user_propagator_base*>(p)->push();
         }
 
-        static void pop_eh(void* p, unsigned num_scopes) {
-            static_cast<user_propagator_base*>(p)->pop(num_scopes);
+        static void pop_eh(void* _p, Z3_solver_callback cb, unsigned num_scopes) {
+            user_propagator_base* p = static_cast<user_propagator_base*>(_p);
+            scoped_cb _cb(p, cb);
+            static_cast<user_propagator_base*>(_p)->pop(num_scopes);
         }
 
-        static void* fresh_eh(void* p, Z3_context ctx) {
+        static void* fresh_eh(void* _p, Z3_context ctx) {
+            user_propagator_base* p = static_cast<user_propagator_base*>(_p);
             context* c = new context(ctx);
-            static_cast<user_propagator_base*>(p)->subcontexts.push_back(c);
-            return static_cast<user_propagator_base*>(p)->fresh(*c);
+            p->subcontexts.push_back(c);
+            return p->fresh(*c);
         }
 
         static void fixed_eh(void* _p, Z3_solver_callback cb, Z3_ast _var, Z3_ast _value) {
@@ -4004,8 +4135,16 @@ namespace z3 {
             expr e(p->ctx(), _e);
             p->m_created_eh(e);
         }
-
-
+        
+        static void decide_eh(void* _p, Z3_solver_callback cb, Z3_ast* _val, unsigned* bit, Z3_lbool* is_pos) {
+            user_propagator_base* p = static_cast<user_propagator_base*>(_p);
+            scoped_cb _cb(p, cb);
+            expr val(p->ctx(), *_val);
+            p->m_decide_eh(val, *bit, *is_pos);
+            // TBD: life time of val is within the scope of this callback.
+            *_val = val;
+        }
+        
     public:
         user_propagator_base(context& c) : s(nullptr), c(&c) {}
         
@@ -4114,6 +4253,22 @@ namespace z3 {
                 Z3_solver_propagate_created(ctx(), *s, created_eh);
             }
         }
+        
+        void register_decide(decide_eh_t& c) {
+            m_decide_eh = c;
+            if (s) {
+                Z3_solver_propagate_decide(ctx(), *s, decide_eh);
+            }
+        }
+
+        void register_decide() {
+            m_decide_eh = [this](expr& val, unsigned& bit, Z3_lbool& is_pos) {
+                decide(val, bit, is_pos);
+            };
+            if (s) {
+                Z3_solver_propagate_decide(ctx(), *s, decide_eh);
+            }
+        }
 
         virtual void fixed(expr const& /*id*/, expr const& /*e*/) { }
 
@@ -4122,6 +4277,13 @@ namespace z3 {
         virtual void final() { }
 
         virtual void created(expr const& /*e*/) {}
+        
+        virtual void decide(expr& /*val*/, unsigned& /*bit*/, Z3_lbool& /*is_pos*/) {}
+
+        void next_split(expr const & e, unsigned idx, Z3_lbool phase) {
+            assert(cb);
+            Z3_solver_next_split(ctx(), cb, e, idx, phase);
+        }
 
         /**
            \brief tracks \c e by a unique identifier that is returned by the call.

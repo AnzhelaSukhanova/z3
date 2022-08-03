@@ -49,6 +49,13 @@ type context
 val mk_context : (string * string) list -> context
 
 (** Interaction logging for Z3
+    Interaction logs are used to record calls into the API into a text file.
+    The text file can be replayed using z3. It has to be the same version of z3
+    to ensure that low level codes emitted in a log are compatible with the
+    version of z3 replaying the log. The file suffix ".log" is understood
+    by z3 as the format of the file being an interaction log. You can use the
+    optional comman-line parameter "-log" to force z3 to treat an input file
+    as an interaction log.
     Note that this is a global, static log and if multiple Context
     objects are created, it logs the interaction with all of them. *)
 module Log :
@@ -927,10 +934,10 @@ end
 module FiniteDomain :
 sig
   (** Create a new finite domain sort. *)
-  val mk_sort : context -> Symbol.symbol -> int -> Sort.sort
+  val mk_sort : context -> Symbol.symbol -> int64 -> Sort.sort
 
   (** Create a new finite domain sort. *)
-  val mk_sort_s : context -> string -> int -> Sort.sort
+  val mk_sort_s : context -> string -> int64 -> Sort.sort
 
   (** Indicates whether the term is of an array sort. *)
   val is_finite_domain : Expr.expr -> bool
@@ -939,7 +946,7 @@ sig
   val is_lt : Expr.expr -> bool
 
   (** The size of the finite domain sort. *)
-  val get_size : Sort.sort -> int
+  val get_size : Sort.sort -> int64
 end
 
 
@@ -1061,6 +1068,15 @@ sig
       if the corresponding sort reference is 0, then the value in sort_refs should be an index
       referring to one of the recursive datatypes that is declared. *)
   val mk_constructor_s : context -> string -> Symbol.symbol -> Symbol.symbol list -> Sort.sort option list -> int list -> Constructor.constructor
+  
+  (* Create a forward reference to a recursive datatype being declared.
+     The forward reference can be used in a nested occurrence: the range of an array
+     or as element sort of a sequence. The forward reference should only be used when
+     used in an accessor for a recursive datatype that gets declared. *)
+  val mk_sort_ref : context -> Symbol.symbol -> Sort.sort
+  
+  (* [mk_sort_ref_s ctx s] is [mk_sort_ref ctx (Symbol.mk_string ctx s)] *)
+  val mk_sort_ref_s : context -> string -> Sort.sort
 
   (** Create a new datatype sort. *)
   val mk_sort : context -> Symbol.symbol -> Constructor.constructor list -> Sort.sort
@@ -1858,7 +1874,7 @@ sig
 
   (** create regular expression sorts over sequences of the argument sort *)   
   val mk_re_sort : context -> Sort.sort -> Sort.sort
-
+  
   (** test if sort is a regular expression sort *)
   val is_re_sort : context -> Sort.sort -> bool
 
@@ -1906,10 +1922,17 @@ sig
 
   (** length of a sequence *)
   val mk_seq_length : context -> Expr.expr -> Expr.expr  
+  
+  (** [mk_seq_nth ctx s index] retrieves from [s] the element at position [index]. 
+      The function is under-specified if the index is out of bounds. *)
+  val mk_seq_nth : context -> Expr.expr -> Expr.expr -> Expr.expr
 
   (** index of the first occurrence of the second argument in the first *)
   val mk_seq_index : context -> Expr.expr -> Expr.expr -> Expr.expr -> Expr.expr 
 
+  (** [mk_seq_last_index ctx s substr] occurence of [substr] in the sequence [s] *)
+  val mk_seq_last_index : context -> Expr.expr -> Expr.expr -> Expr.expr
+  
   (** retrieve integer expression encoded in string *)
   val mk_str_to_int : context -> Expr.expr -> Expr.expr
 
@@ -2062,7 +2085,7 @@ sig
   val mk_numeral_i : context -> int -> Sort.sort -> Expr.expr
 
   (** Create a numeral of FloatingPoint sort from a sign bit and two integers. *)
-  val mk_numeral_i_u : context -> bool -> int -> int -> Sort.sort -> Expr.expr
+  val mk_numeral_i_u : context -> bool -> int64 -> int64 -> Sort.sort -> Expr.expr
 
   (** Create a numeral of FloatingPoint sort from a string *)
   val mk_numeral_s : context -> string -> Sort.sort -> Expr.expr
@@ -2287,7 +2310,7 @@ sig
   val get_numeral_exponent_string : context -> Expr.expr -> bool -> string
 
   (** Return the exponent value of a floating-point numeral as a signed integer *)
-  val get_numeral_exponent_int : context -> Expr.expr -> bool -> bool * int
+  val get_numeral_exponent_int : context -> Expr.expr -> bool -> bool * int64
 
   (** Return the exponent of a floating-point numeral as a bit-vector expression. 
       Remark: NaN's do not have a bit-vector exponent, so they are invalid arguments. *)
@@ -2304,7 +2327,7 @@ sig
       Remark: This function extracts the significand bits, without the
       hidden bit or normalization. Throws an exception if the
       significand does not fit into an int. *)
-  val get_numeral_significand_uint : context -> Expr.expr -> bool * int
+  val get_numeral_significand_uint : context -> Expr.expr -> bool * int64
 
   (** Indicates whether a floating-point numeral is a NaN. *)
   val is_numeral_nan : context -> Expr.expr -> bool

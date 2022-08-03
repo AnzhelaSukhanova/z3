@@ -29,6 +29,7 @@ Revision History:
 #include "ast/proofs/proof_checker.h"
 #include "ast/ast_util.h"
 #include "ast/well_sorted.h"
+#include "model/model_params.hpp"
 #include "model/model.h"
 #include "model/model_pp.h"
 #include "smt/smt_context.h"
@@ -41,6 +42,7 @@ Revision History:
 #include "smt/smt_model_finder.h"
 #include "smt/smt_parallel.h"
 #include "smt/smt_arith_value.h"
+#include <iostream>
 
 namespace smt {
 
@@ -205,7 +207,7 @@ namespace smt {
         ast_translation tr(src_ctx.m, m, false);
         for (unsigned i = 0; i < src_ctx.m_user_propagator->get_num_vars(); ++i) {
             app* e = src_ctx.m_user_propagator->get_expr(i);
-            m_user_propagator->add_expr(tr(e));
+            m_user_propagator->add_expr(tr(e), true);
         }
     }
 
@@ -819,6 +821,8 @@ namespace smt {
                 SASSERT(t2 != null_theory_id);
                 theory_var v1 = m_fparams.m_new_core2th_eq ? get_closest_var(n1, t2) : r1->get_th_var(t2);
 
+                TRACE("merge_theory_vars", tout << get_theory(t2)->get_name() << ": " << v2 << " == " << v1 << "\n");
+
                 if (v1 != null_theory_var) {
                     // only send the equality to the theory, if the equality was not propagated by it.
                     if (t2 != from_th)
@@ -837,6 +841,7 @@ namespace smt {
                 SASSERT(v1 != null_theory_var);
                 SASSERT(t1 != null_theory_id);
                 theory_var v2 = r2->get_th_var(t1);
+                TRACE("merge_theory_vars", tout << get_theory(t1)->get_name() << ": " << v2 << " == " << v1 << "\n");
                 if (v2 == null_theory_var) {
                     r2->add_th_var(v1, t1, m_region);
                     push_new_th_diseqs(r2, v1, get_theory(t1));
@@ -1766,6 +1771,70 @@ namespace smt {
     }
 
     /**
+       \brief Returns a truth value for the given variable
+    */
+    bool context::guess(bool_var var, lbool phase) {
+        if (is_quantifier(m_bool_var2expr[var])) {
+            // Overriding any decision on how to assign the quantifier.
+            // assigning a quantifier to false is equivalent to make it irrelevant.
+            phase = l_false;
+        }
+        literal l(var, false);
+
+        if (phase != l_undef)
+            return phase == l_true;
+
+        bool_var_data & d = m_bdata[var];
+        if (d.try_true_first())
+            return true;
+        switch (m_fparams.m_phase_selection) {
+        case PS_THEORY:
+            if (m_phase_cache_on && d.m_phase_available) {
+                return m_bdata[var].m_phase;
+            }
+            if (!m_phase_cache_on && d.is_theory_atom()) {
+                theory * th = m_theories.get_plugin(d.get_theory());
+                lbool th_phase = th->get_phase(var);
+                if (th_phase != l_undef) {
+                    return th_phase == l_true;
+                }
+            }
+            if (track_occs()) {
+                if (m_lit_occs[l.index()] == 0) {
+                    return false;
+                }
+                if (m_lit_occs[(~l).index()] == 0) {
+                    return true;
+                }
+            }
+            return m_phase_default;
+        case PS_CACHING:
+        case PS_CACHING_CONSERVATIVE:
+        case PS_CACHING_CONSERVATIVE2:
+            if (m_phase_cache_on && d.m_phase_available) {
+                TRACE("phase_selection", tout << "using cached value, is_pos: " << m_bdata[var].m_phase << ", var: p" << var << "\n";);
+                return m_bdata[var].m_phase;
+            }
+            else {
+                TRACE("phase_selection", tout << "setting to false\n";);
+                return m_phase_default;
+            }
+        case PS_ALWAYS_FALSE:
+            return false;
+        case PS_ALWAYS_TRUE:
+            return true;
+        case PS_RANDOM:
+            return m_random() % 2 == 0;
+        case PS_OCCURRENCE: {
+            return m_lit_occs[l.index()] > m_lit_occs[(~l).index()];
+        }
+        default:
+            UNREACHABLE();
+            return false;
+        }
+    }
+
+    /**
        \brief Execute next case split, return false if there are no
        more case splits to be performed.
     */
@@ -1782,23 +1851,29 @@ namespace smt {
             }
         }
         bool_var var;
-        lbool phase = l_undef;
-        m_case_split_queue->next_case_split(var, phase);
+        bool is_pos;
+        bool used_queue = false;
+        
+        if (!has_split_candidate(var, is_pos)) {
+            lbool phase = l_undef;
+            m_case_split_queue->next_case_split(var, phase);
+            used_queue = true;
+            if (var == null_bool_var)
+                return false;
 
-        if (var == null_bool_var) {
-            return false;
+            TRACE_CODE({
+                static unsigned counter = 0;
+                counter++;
+                if (counter % 100 == 0) {
+                    TRACE("activity_profile",
+                          for (unsigned i=0; i<get_num_bool_vars(); i++) {
+                              tout << get_activity(i) << " ";
+                          }
+                          tout << "\n";);
+                }});
+        
+            is_pos = guess(var, phase);
         }
-
-        TRACE_CODE({
-            static unsigned counter = 0;
-            counter++;
-            if (counter % 100 == 0) {
-                TRACE("activity_profile",
-                      for (unsigned i=0; i<get_num_bool_vars(); i++) {
-                          tout << get_activity(i) << " ";
-                      }
-                      tout << "\n";);
-            }});
 
         m_stats.m_num_decisions++;
 
@@ -1806,81 +1881,15 @@ namespace smt {
         TRACE("decide", tout << "splitting, lvl: " << m_scope_lvl << "\n";);
 
         TRACE("decide_detail", tout << mk_pp(bool_var2expr(var), m) << "\n";);
-
-        bool is_pos;
-
-        if (is_quantifier(m_bool_var2expr[var])) {
-            // Overriding any decision on how to assign the quantifier.
-            // assigning a quantifier to false is equivalent to make it irrelevant.
-            phase = l_false;
-        }
+        
         literal l(var, false);
 
-        if (phase != l_undef) {
-            is_pos = phase == l_true;
-        }
-        else {
-            bool_var_data & d = m_bdata[var];
-            if (d.try_true_first()) {
-                is_pos = true;
-            }
-            else {
-                switch (m_fparams.m_phase_selection) {
-                case PS_THEORY: 
-                    if (m_phase_cache_on && d.m_phase_available) {
-                        is_pos = m_bdata[var].m_phase;
-                        break;
-                    }
-                    if (!m_phase_cache_on && d.is_theory_atom()) {
-                        theory * th = m_theories.get_plugin(d.get_theory());
-                        lbool th_phase = th->get_phase(var);
-                        if (th_phase != l_undef) {
-                            is_pos = th_phase == l_true;
-                            break;
-                        }
-                    }
-                    if (track_occs()) {
-                        if (m_lit_occs[l.index()] == 0) {
-                            is_pos = false;
-                            break;
-                        }
-                        if (m_lit_occs[(~l).index()] == 0) {
-                            is_pos = true;
-                            break;
-                        }
-                    }
-                    is_pos = m_phase_default;                    
-                    break;
-                case PS_CACHING:
-                case PS_CACHING_CONSERVATIVE:
-                case PS_CACHING_CONSERVATIVE2:
-                    if (m_phase_cache_on && d.m_phase_available) {
-                        TRACE("phase_selection", tout << "using cached value, is_pos: " << m_bdata[var].m_phase << ", var: p" << var << "\n";);
-                        is_pos = m_bdata[var].m_phase;
-                    }
-                    else {
-                        TRACE("phase_selection", tout << "setting to false\n";);
-                        is_pos = m_phase_default;
-                    }
-                    break;
-                case PS_ALWAYS_FALSE:
-                    is_pos = false;
-                    break;
-                case PS_ALWAYS_TRUE:
-                    is_pos = true;
-                    break;
-                case PS_RANDOM:
-                    is_pos = (m_random() % 2 == 0);
-                    break;
-                case PS_OCCURRENCE: {
-                    is_pos = m_lit_occs[l.index()] > m_lit_occs[(~l).index()];
-                    break;
-                }
-                default:
-                    is_pos = false;
-                    UNREACHABLE();
-                }
-            }
+        bool_var original_choice = var;
+
+        if (decide_user_interference(var, is_pos)) {
+            if (used_queue)
+                m_case_split_queue->unassign_var_eh(original_choice);
+            l = literal(var, false);
         }
 
         if (!is_pos) l.neg();
@@ -1888,7 +1897,7 @@ namespace smt {
         assign(l, b_justification::mk_axiom(), true);
         return true;
     }
-
+    
     /**
        \brief Update counter that is used to enable/disable phase caching.
     */
@@ -2905,6 +2914,20 @@ namespace smt {
         return m_user_propagator && m_user_propagator->has_fixed() && n->get_th_var(m_user_propagator->get_family_id()) != null_theory_var;
     }
 
+    bool context::has_split_candidate(bool_var& var, bool& is_pos) {
+        if (!m_user_propagator)
+            return false;
+        return m_user_propagator->get_case_split(var, is_pos);
+    }
+    
+    bool context::decide_user_interference(bool_var& var, bool& is_pos) {
+        if (!m_user_propagator)
+            return false;
+        bool_var old = var;
+        m_user_propagator->decide(var, is_pos);
+        return old != var;
+    }
+
     void context::assign_fixed(enode* n, expr* val, unsigned sz, literal const* explain) {
         theory_var v = n->get_th_var(m_user_propagator->get_family_id());
         m_user_propagator->new_fixed_eh(v, val, sz, explain);
@@ -3041,7 +3064,8 @@ namespace smt {
                     }
                 }
             }
-        } else {
+        }
+        else {
             literal_vector new_case_split;
             for (unsigned i = 0; i < num_lits; ++i) {
                 literal l = lits[i];
@@ -3160,7 +3184,7 @@ namespace smt {
             }
             else {
                 expr_ref proxy(m), fml(m);
-                proxy = m.mk_fresh_const("proxy", m.mk_bool_sort());
+                proxy = m.mk_fresh_const(symbol(), m.mk_bool_sort());
                 fml = m.mk_implies(proxy, e);
                 m_asserted_formulas.assert_expr(fml);
                 asm2proxy.push_back(std::make_pair(e, proxy));
@@ -3729,15 +3753,12 @@ namespace smt {
 
         reset_model();
 
-        if (m_last_search_failure != OK) {
+        if (m_last_search_failure != OK) 
             return false;
-        }
-        if (status == l_false) {
+        if (status == l_false) 
             return false;
-        }
-        if (status == l_true && !m_qmanager->has_quantifiers() && !m_has_lambda) {
+        if (status == l_true && !m_qmanager->has_quantifiers() && !has_lambda()) 
             return false;
-        }
         if (status == l_true && m_qmanager->has_quantifiers()) {
             // possible outcomes   DONE l_true, DONE l_undef, CONTINUE
             mk_proto_model();
@@ -3758,7 +3779,7 @@ namespace smt {
                 break;
             }
         }
-        if (status == l_true && m_has_lambda) {
+        if (status == l_true && has_lambda()) {
             m_last_search_failure = LAMBDAS;
             status = l_undef;
             return false;
@@ -3938,8 +3959,7 @@ namespace smt {
         if (m_fparams.m_model_on_final_check) {
             mk_proto_model();
             model_pp(std::cout, *m_proto_model);
-            std::cout << "END_OF_MODEL\n";
-            std::cout.flush();
+            std::cout << "END_OF_MODEL" << std::endl;
         }
 
         m_stats.m_num_final_checks++;
@@ -4002,7 +4022,7 @@ namespace smt {
         TRACE("final_check_step", tout << "RESULT final_check: " << result << "\n";);
         if (result == FC_GIVEUP && f != OK)
             m_last_search_failure = f;
-        if (result == FC_DONE && m_has_lambda) {
+        if (result == FC_DONE && has_lambda()) {
             m_last_search_failure = LAMBDAS;
             result = FC_GIVEUP;
         }
@@ -4460,9 +4480,8 @@ namespace smt {
             return false;
         }
         case 1: {
-            if (m_qmanager->is_shared(n)) {
+            if (m_qmanager->is_shared(n) && !m.is_lambda_def(n->get_expr()) && !m_lambdas.contains(n)) 
                 return true;
-            }
 
             // the variable is shared if the equivalence class of n
             // contains a parent application.
@@ -4474,6 +4493,8 @@ namespace smt {
                 app* p = parent->get_expr();
                 family_id fid = p->get_family_id();
                 if (fid != th_id && fid != m.get_basic_family_id()) {
+                    if (is_beta_redex(parent, n))
+                        continue;
                     TRACE("is_shared", tout << enode_pp(n, *this) 
                           << "\nis shared because of:\n" 
                           << enode_pp(parent, *this) << "\n";);
@@ -4512,6 +4533,12 @@ namespace smt {
         default:
             return true;
         }
+    }
+
+    bool context::is_beta_redex(enode* p, enode* n) const {
+        family_id th_id = p->get_expr()->get_family_id();
+        theory * th = get_theory(th_id);
+        return th && th->is_beta_redex(p, n);
     }
 
     bool context::get_value(enode * n, expr_ref & value) {
@@ -4611,9 +4638,15 @@ namespace smt {
         }
     }
 
-    expr_ref_vector context::get_trail() {        
+    expr_ref_vector context::get_trail(unsigned max_level) {        
         expr_ref_vector result(get_manager());
-        get_assignments(result);
+        for (literal lit : m_assigned_literals) {
+            if (get_assign_level(lit) > max_level + m_base_lvl)
+                continue;
+            expr_ref e(m);
+            literal2expr(lit, e);
+            result.push_back(std::move(e));
+        }
         return result;
     }
 
@@ -4621,15 +4654,10 @@ namespace smt {
         expr_mark visited;
         for (expr* fml : result)
             visited.mark(fml);
-        for (literal lit : m_assigned_literals) {
-            if (get_assign_level(lit) > m_base_lvl)
-                break;
-            expr_ref e(m);
-            literal2expr(lit, e);
-            if (visited.is_marked(e))
-                continue;
-            result.push_back(std::move(e));
-        }
+        expr_ref_vector trail = get_trail(0);
+        for (expr* t : trail) 
+            if (!visited.is_marked(t))
+                result.push_back(t);
     }
 
 
@@ -4638,7 +4666,8 @@ namespace smt {
     }
 
     void context::add_rec_funs_to_model() {
-        if (m_model)
+        model_params p;
+        if (m_model && p.user_functions())
             m_model->add_rec_funs();
     }
 

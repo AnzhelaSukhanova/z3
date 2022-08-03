@@ -46,8 +46,6 @@ public:
         solver::updt_params(p);
     }
 
-    ~enum2bv_solver() override {}
-
     solver* translate(ast_manager& dst_m, params_ref const& p) override {   
         solver* result = alloc(enum2bv_solver, dst_m, p, m_solver->translate(dst_m, p));
         model_converter_ref mc = external_model_converter();
@@ -189,8 +187,8 @@ public:
         m_solver->get_levels(vars, depth);
     }
 
-    expr_ref_vector get_trail() override {
-        return m_solver->get_trail();
+    expr_ref_vector get_trail(unsigned max_level) override {
+        return m_solver->get_trail(max_level);
     }
 
     unsigned get_num_assertions() const override {

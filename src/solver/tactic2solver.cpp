@@ -116,6 +116,10 @@ public:
         m_tactic->user_propagate_register_created(created_eh);
     }
 
+    void user_propagate_register_decide(user_propagator::decide_eh_t& decide_eh) override {
+        m_tactic->user_propagate_register_decide(decide_eh);
+    }
+
     void user_propagate_clear() override {
         if (m_tactic)
             m_tactic->user_propagate_clear();
@@ -134,7 +138,7 @@ public:
         throw default_exception("cannot retrieve depth from solvers created using tactics");
     }
 
-    expr_ref_vector get_trail() override {
+    expr_ref_vector get_trail(unsigned max_level) override {
         throw default_exception("cannot retrieve trail from solvers created using tactics");
     }
 };
@@ -353,9 +357,7 @@ class tactic2solver_factory : public solver_factory {
 public:
     tactic2solver_factory(tactic * t):m_tactic(t) {
     }
-    
-    ~tactic2solver_factory() override {}
-    
+
     solver * operator()(ast_manager & m, params_ref const & p, bool proofs_enabled, bool models_enabled, bool unsat_core_enabled, symbol const & logic) override {
         return mk_tactic2solver(m, m_tactic.get(), p, proofs_enabled, models_enabled, unsat_core_enabled, logic);
     }

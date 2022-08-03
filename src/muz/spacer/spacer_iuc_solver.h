@@ -88,8 +88,6 @@ public:
         m_old_hyp_reducer(old_hyp_reducer)
     {}
 
-    ~iuc_solver() override {}
-
     /* iuc solver specific */
     virtual void get_iuc(expr_ref_vector &core);
     void set_split_literals(bool v) { m_split_literals = v; }
@@ -126,7 +124,7 @@ public:
     void move_to_front(expr* e) override { m_solver.move_to_front(e); }
     expr_ref_vector cube(expr_ref_vector&, unsigned) override { return expr_ref_vector(m); }
     void get_levels(ptr_vector<expr> const& vars, unsigned_vector& depth) override { m_solver.get_levels(vars, depth); }
-    expr_ref_vector get_trail() override { return m_solver.get_trail(); }
+    expr_ref_vector get_trail(unsigned max_level) override { return m_solver.get_trail(max_level); }
 
     void push() override;
     void pop(unsigned n) override;

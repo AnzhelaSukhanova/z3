@@ -29,6 +29,7 @@ namespace dt {
         th_euf_solver(ctx, ctx.get_manager().get_family_name(id), id),
         dt(m),
         m_autil(m),
+        m_sutil(m),
         m_find(*this),
         m_args(m)
     {}
@@ -496,13 +497,47 @@ namespace dt {
     }
 
     ptr_vector<euf::enode> const& solver::get_array_args(enode* n) {
-        m_array_args.reset();
+        m_nodes.reset();
         array::solver* th = dynamic_cast<array::solver*>(ctx.fid2solver(m_autil.get_family_id()));
         for (enode* p : th->parent_selects(n))
-            m_array_args.push_back(p);
+            m_nodes.push_back(p);
         app_ref def(m_autil.mk_default(n->get_expr()), m);
-        m_array_args.push_back(ctx.get_enode(def));
-        return m_array_args;
+        m_nodes.push_back(ctx.get_enode(def));
+        return m_nodes;
+    }
+
+    ptr_vector<euf::enode> const& solver::get_seq_args(enode* n, enode*& sibling) {
+        m_nodes.reset();
+        m_todo.reset();
+        auto add_todo = [&](enode* n) {
+            if (!n->is_marked1()) {
+                n->mark1();
+                m_todo.push_back(n);
+            }
+        };
+
+        for (enode* sib : euf::enode_class(n)) {
+            if (m_sutil.str.is_concat_of_units(sib->get_expr())) {
+                add_todo(sib);
+                sibling = sib;
+                break;
+            }
+        }
+
+            
+        for (unsigned i = 0; i < m_todo.size(); ++i) {
+            enode* n = m_todo[i];
+            expr* e = n->get_expr();
+            if (m_sutil.str.is_unit(e))
+                m_nodes.push_back(n->get_arg(0));
+            else if (m_sutil.str.is_concat(e)) 
+                for (expr* arg : *to_app(e)) 
+                    add_todo(ctx.get_enode(arg));
+        }
+        for (enode* n : m_todo)
+            n->unmark1();
+
+        return m_nodes;        
     }
 
     // Assuming `app` is equal to a constructor term, return the constructor enode
@@ -522,10 +557,10 @@ namespace dt {
 
         // collect equalities on all children that may have been used.
         bool found = false;
-        auto add = [&](enode* arg) {
-            if (arg->get_root() == child->get_root()) {
-                if (arg != child)
-                    m_used_eqs.push_back(enode_pair(arg, child));
+        auto add = [&](enode* seq_arg) {
+            if (seq_arg->get_root() == child->get_root()) {
+                if (seq_arg != child)
+                    m_used_eqs.push_back(enode_pair(seq_arg, child));
                 found = true;
             }
         };
@@ -535,7 +570,16 @@ namespace dt {
             if (m_autil.is_array(s) && dt.is_datatype(get_array_range(s)))
                 for (enode* aarg : get_array_args(arg))
                     add(aarg);
+            sort* se;
+            if (m_sutil.is_seq(arg->get_sort(), se) && dt.is_datatype(se)) {
+                enode* sibling = nullptr;
+                for (enode* seq_arg : get_seq_args(arg, sibling))
+                    add(seq_arg);
+                if (sibling && sibling != arg)
+                    m_used_eqs.push_back(enode_pair(arg, sibling));                
+            }
         }
+        
         VERIFY(found);
     }
 
@@ -575,6 +619,21 @@ namespace dt {
             return false;
         enode* parent = d->m_constructor;
         oc_mark_on_stack(parent);
+        
+        auto process_arg = [&](enode* aarg) {
+            if (oc_cycle_free(aarg)) 
+                return false;                
+            if (oc_on_stack(aarg)) {
+                occurs_check_explain(parent, aarg);
+                return true;
+            }
+            if (dt.is_datatype(aarg->get_sort())) {
+                m_parent.insert(aarg->get_root(), parent);
+                oc_push_stack(aarg);
+            }
+            return false;            
+        };
+
         for (enode* arg : euf::enode_args(parent)) {
             if (oc_cycle_free(arg))
                 continue;
@@ -585,24 +644,21 @@ namespace dt {
             }
             // explore `arg` (with parent)
             expr* earg = arg->get_expr();
-            sort* s = earg->get_sort();
+            sort* s = earg->get_sort(), *se;
+            enode* sibling;
             if (dt.is_datatype(s)) {
                 m_parent.insert(arg->get_root(), parent);
                 oc_push_stack(arg);
             }
-            else if (m_autil.is_array(s) && dt.is_datatype(get_array_range(s))) {
-                for (enode* aarg : get_array_args(arg)) {
-                    if (oc_cycle_free(aarg))
-                        continue;
-                    if (oc_on_stack(aarg)) {
-                        occurs_check_explain(parent, aarg);
+            else if (m_sutil.is_seq(s, se) && dt.is_datatype(se)) {
+                for (enode* sarg : get_seq_args(arg, sibling))
+                    if (process_arg(sarg))
                         return true;
-                    }
-                    if (is_datatype(aarg)) {
-                        m_parent.insert(aarg->get_root(), parent);
-                        oc_push_stack(aarg);
-                    }
-                }
+            }
+            else if (m_autil.is_array(s) && dt.is_datatype(get_array_range(s))) {
+                for (enode* sarg : get_array_args(arg))
+                    if (process_arg(sarg))
+                        return true;
             }
         }
         return false;

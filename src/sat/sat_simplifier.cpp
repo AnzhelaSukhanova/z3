@@ -652,6 +652,7 @@ namespace sat {
 
     inline void simplifier::propagate_unit(literal l) {
         unsigned old_trail_sz = s.m_trail.size();
+        unsigned num_clauses = s.m_clauses.size();
         s.assign_scoped(l);
         s.propagate_core(false); // must not use propagate(), since s.m_clauses is not in a consistent state.
         if (s.inconsistent())
@@ -672,6 +673,8 @@ namespace sat {
             }
             cs.reset();            
         }
+        for (unsigned i = num_clauses; i < s.m_clauses.size(); ++i) 
+            m_use_list.insert(*s.m_clauses[i]);
     }
 
     void simplifier::elim_lit(clause & c, literal l) {
@@ -1784,6 +1787,7 @@ namespace sat {
             clause& c = it.curr();
             if (!c.is_learned() && !c.was_removed()) {
                 r.push_back(clause_wrapper(c));
+                SASSERT(r.back().contains(l));
                 SASSERT(r.back().size() == c.size());
             }
         }
@@ -1805,7 +1809,13 @@ namespace sat {
        Return false if the result is a tautology
     */
     bool simplifier::resolve(clause_wrapper const & c1, clause_wrapper const & c2, literal l, literal_vector & r) {
-        CTRACE("resolve_bug", !c1.contains(l), tout << c1 << "\n" << c2 << "\nl: " << l << "\n";);
+        CTRACE("resolve_bug", !c1.contains(l) || !c2.contains(~l), tout << c1 << "\n" << c2 << "\nl: " << l << "\n";);
+        if (m_visited.size() <= 2*s.num_vars())
+            m_visited.resize(2*s.num_vars(), false);
+        if (c1.was_removed() && !c1.contains(l))
+            return false;
+        if (c2.was_removed() && !c2.contains(~l))
+            return false;
         SASSERT(c1.contains(l));
         SASSERT(c2.contains(~l));
         bool res = true;
@@ -1825,6 +1835,10 @@ namespace sat {
             literal l2 = c2[i];
             if (not_l == l2)
                 continue;
+            if ((~l2).index() >= m_visited.size()) {
+                //s.display(std::cout << l2 << " " << s.num_vars() << " " << m_visited.size() << "\n");
+                UNREACHABLE();
+            }
             if (m_visited[(~l2).index()]) {
                 res = false;
                 break;
@@ -1964,7 +1978,14 @@ namespace sat {
                 }
             }
         }
-        TRACE("sat_simplifier", tout << "eliminate " << v << ", before: " << before_clauses << " after: " << after_clauses << "\n";);
+        TRACE("sat_simplifier", tout << "eliminate " << v << ", before: " << before_clauses << " after: " << after_clauses << "\n";
+              tout << "pos\n";
+              for (auto & c : m_pos_cls) 
+                  tout << c << "\n";
+              tout << "neg\n";
+              for (auto & c : m_neg_cls) 
+                  tout << c << "\n";
+              );
         m_elim_counter -= num_pos * num_neg + before_lits;
 
         m_elim_counter -= num_pos * num_neg + before_lits;
@@ -1979,6 +2000,8 @@ namespace sat {
         m_elim_counter -= num_pos * num_neg + before_lits;
 
         for (auto & c1 : m_pos_cls) {
+            if (c1.was_removed())
+                continue;
             for (auto & c2 : m_neg_cls) {
                 m_new_cls.reset();
                 if (!resolve(c1, c2, pos_l, m_new_cls))

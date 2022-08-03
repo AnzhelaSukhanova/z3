@@ -182,6 +182,7 @@ sort* seq_decl_plugin::apply_binding(ptr_vector<sort> const& binding, sort* s) {
 void seq_decl_plugin::init() {
     if (m_init) return;
     ast_manager& m = *m_manager;
+    array_util autil(m);
     m_init = true;
     sort* A = m.mk_uninterpreted_sort(symbol(0u));
     sort* strT = m_string;
@@ -193,7 +194,7 @@ void seq_decl_plugin::init() {
     sort* reT  = m.mk_sort(m_family_id, RE_SORT, 1, &paramS);
     sort* boolT = m.mk_bool_sort();
     sort* intT  = arith_util(m).mk_int();
-    sort* predA = array_util(m).mk_array_sort(A, boolT);
+    sort* predA = autil.mk_array_sort(A, boolT);
     sort* seqAseqAseqA[3] = { seqA, seqA, seqA };
     sort* seqAreAseqA[3] = { seqA, reA, seqA };
     sort* seqAseqA[2] = { seqA, seqA };
@@ -209,6 +210,7 @@ void seq_decl_plugin::init() {
     sort* str2TintT[3] = { strT, strT, intT };
     sort* seqAintT[2] = { seqA, intT };
     sort* seq3A[3] = { seqA, seqA, seqA };
+
     m_sigs.resize(LAST_SEQ_OP);
     // TBD: have (par ..) construct and load parameterized signature from premable.
     m_sigs[OP_SEQ_UNIT]      = alloc(psig, m, "seq.unit",     1, 1, &A, seqA);
@@ -272,6 +274,7 @@ void seq_decl_plugin::init() {
     m_sigs[_OP_REGEXP_FULL_CHAR]  = alloc(psig, m, "re.allchar", 0, 0, nullptr, reT);
     m_sigs[_OP_STRING_SUBSTR]     = alloc(psig, m, "str.substr", 0, 3, strTint2T, strT);
 }
+
 
 sort* seq_decl_plugin::mk_reglan() {
     if (!m_reglan) {
@@ -529,7 +532,12 @@ func_decl* seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, p
     case _OP_STRING_FROM_CHAR: {
         if (!(num_parameters == 1 && parameters[0].is_int())) 
             m.raise_exception("character literal expects integer parameter");
-        zstring zs(parameters[0].get_int());        
+        int i = parameters[0].get_int();
+        if (i < 0)
+            m.raise_exception("character literal expects a non-negative integer parameter");
+        if (i > (int)m_char_plugin->max_char())
+            m.raise_exception("character literal is out of bounds");
+        zstring zs(i);        
         parameter p(zs);
         return m.mk_const_decl(m_stringc_sym, m_string,func_decl_info(m_family_id, OP_STRING_CONST, 1, &p));
     }
@@ -582,6 +590,13 @@ func_decl* seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, p
     case _OP_STRING_STRCTN:
         return mk_str_fun(k, arity, domain, range, OP_SEQ_CONTAINS);
 
+    case OP_SEQ_MAP:
+    case OP_SEQ_MAPI:
+    case OP_SEQ_FOLDL:
+    case OP_SEQ_FOLDLI:
+        add_map_sig();
+        return mk_str_fun(k, arity, domain, range, k);    
+
     case OP_SEQ_TO_RE:
         m_has_re = true;
         return mk_seq_fun(k, arity, domain, range, _OP_STRING_TO_REGEXP);
@@ -625,13 +640,42 @@ func_decl* seq_decl_plugin::mk_func_decl(decl_kind k, unsigned num_parameters, p
     }
 }
 
+void seq_decl_plugin::add_map_sig() {
+    if (m_sigs[OP_SEQ_MAP])
+        return;
+    ast_manager& m = *m_manager;
+    array_util autil(m);    
+    sort* A = m.mk_uninterpreted_sort(symbol(0u));
+    sort* B = m.mk_uninterpreted_sort(symbol(1u));
+    parameter paramA(A);
+    parameter paramB(B);
+    sort* seqA = m.mk_sort(m_family_id, SEQ_SORT, 1, &paramA);
+    sort* seqB = m.mk_sort(m_family_id, SEQ_SORT, 1, &paramB);
+    sort* intT  = arith_util(m).mk_int();
+    sort* arrAB = autil.mk_array_sort(A, B);
+    sort* arrIAB = autil.mk_array_sort(intT, A, B);
+    sort* arrBAB = autil.mk_array_sort(B, A, B);
+    sort* arrIBAB = autil.mk_array_sort(intT, B, A, B);
+    sort* arrABseqA[2] = { arrAB, seqA };
+    sort* arrIABintTseqA[3] = { arrIAB, intT, seqA };
+    sort* arrBAB_BseqA[3] = { arrBAB, B,seqA };
+    sort* arrIBABintTBseqA[4] = { arrIBAB, intT, B, seqA };
+    m_sigs[OP_SEQ_MAP]       = alloc(psig, m, "seq.map",      2, 2, arrABseqA, seqB);
+    m_sigs[OP_SEQ_MAPI]      = alloc(psig, m, "seq.mapi",     2, 3, arrIABintTseqA, seqB);
+    m_sigs[OP_SEQ_FOLDL]     = alloc(psig, m, "seq.fold_left",    2, 3, arrBAB_BseqA, B);
+    m_sigs[OP_SEQ_FOLDLI]    = alloc(psig, m, "seq.fold_leftli",   2, 4, arrIBABintTBseqA, B);
+}
+
 void seq_decl_plugin::get_op_names(svector<builtin_name> & op_names, symbol const & logic) {
     init();
     for (unsigned i = 0; i < m_sigs.size(); ++i) {
-        if (m_sigs[i]) {
-            op_names.push_back(builtin_name(m_sigs[i]->m_name.str(), i));
-        }
+        if (m_sigs[i]) 
+            op_names.push_back(builtin_name(m_sigs[i]->m_name.str(), i));        
     }
+    op_names.push_back(builtin_name("seq.map",    OP_SEQ_MAP));
+    op_names.push_back(builtin_name("seq.mapi",   OP_SEQ_MAPI));
+    op_names.push_back(builtin_name("seq.foldl",  OP_SEQ_FOLDL));
+    op_names.push_back(builtin_name("seq.foldli", OP_SEQ_FOLDLI));
     op_names.push_back(builtin_name("str.in.re", _OP_STRING_IN_REGEXP));
     op_names.push_back(builtin_name("str.in-re", _OP_STRING_IN_REGEXP));
     op_names.push_back(builtin_name("str.to.re", _OP_STRING_TO_REGEXP));
@@ -927,6 +971,22 @@ bool seq_util::str::is_len_sub(expr const* s, expr*& l, expr*& u, rational& k) c
         return false;
 }
 
+bool seq_util::str::is_concat_of_units(expr* s) const {
+    ptr_vector<expr> todo;
+    todo.push_back(s);
+    while (!todo.empty()) {
+        expr* e = todo.back();
+        todo.pop_back();
+        if (is_empty(e) || is_unit(e))
+            continue;
+        if (is_concat(e))
+            todo.append(to_app(e)->get_num_args(), to_app(e)->get_args());
+        else
+            return false;
+    }
+    return true;
+}
+
 bool seq_util::str::is_unit_string(expr const* s, expr_ref& c) const {
     zstring z;
     expr* ch = nullptr;
@@ -1046,6 +1106,31 @@ unsigned seq_util::rex::max_length(expr* r) const {
     // Else: star, plus, complement, full_seq, loop(r,r1,lo), derivative
     return UINT_MAX;
 }
+
+/**
+   \brief determine if \c n is a range regular expression where the lower and upper bounds
+   are given by single characters.
+   Range expressions where lower and upper bounds are not single characters are either 
+   the empty language (when a bound is a string but not a single character) or symbolic
+   (when both bounds are not ground strings). The general is_range can be used to process
+   range expressions for these cases, but they don't correspond to mainstream regex usage.   
+ */
+bool seq_util::rex::is_range(expr const* n, unsigned& lo, unsigned& hi) const {
+    expr* _lo, *_hi;
+    zstring los, his;
+    if (!is_range(n, _lo, _hi))
+        return false;
+    if (!u.str.is_string(_lo, los))
+        return false;
+    if (!u.str.is_string(_hi, his))
+        return false;
+    if (los.length() != 1 || his.length() != 1)
+        return false;
+    lo = los[0];
+    hi = his[0];
+    return true;
+}
+
 
 sort* seq_util::rex::to_seq(sort* re) {
     (void)u;

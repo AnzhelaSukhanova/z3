@@ -53,7 +53,6 @@ class solver : public check_sat_result, public user_propagator::core {
     symbol      m_cancel_backup_file;
 public:
     solver() {}
-    ~solver() override {}
 
     /**
     \brief Creates a clone of the solver.
@@ -265,7 +264,7 @@ public:
 
     expr_ref_vector get_non_units();
 
-    virtual expr_ref_vector get_trail() = 0; // { return expr_ref_vector(get_manager()); }
+    virtual expr_ref_vector get_trail(unsigned max_level) = 0; // { return expr_ref_vector(get_manager()); }
     
     virtual void get_levels(ptr_vector<expr> const& vars, unsigned_vector& depth) = 0;
 

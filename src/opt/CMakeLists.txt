@@ -1,17 +1,20 @@
 z3_add_component(opt
   SOURCES
+    maxcore.cpp
     maxlex.cpp
-    maxres.cpp
     maxsmt.cpp
     opt_cmds.cpp
     opt_context.cpp
+    opt_cores.cpp
     opt_lns.cpp
     opt_pareto.cpp
     opt_parse.cpp
+    opt_preprocess.cpp
     optsmt.cpp
     opt_solver.cpp
     pb_sls.cpp
     sortmax.cpp
+    totalizer.cpp
     wmax.cpp
   COMPONENT_DEPENDENCIES
     sat_solver

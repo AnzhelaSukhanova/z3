@@ -45,7 +45,6 @@ namespace q {
         arith_util   a;
     public:
         arith_projection(ast_manager& m) : projection_function(m), a(m) {}
-        ~arith_projection() override {}
         bool operator()(expr* e1, expr* e2) const override { return lt(a, e1, e2); }
         expr* mk_lt(expr* x, expr* y) override { return a.mk_lt(x, y); }
     };
@@ -54,7 +53,6 @@ namespace q {
         bv_util bvu;
     public:
         ubv_projection(ast_manager& m) : projection_function(m), bvu(m) {}
-        ~ubv_projection() override {}
         bool operator()(expr* e1, expr* e2) const override { return lt(bvu, e1, e2); }
         expr* mk_lt(expr* x, expr* y) override { return m.mk_not(bvu.mk_ule(y, x)); }
     };
@@ -184,6 +182,8 @@ namespace q {
         for (euf::enode* n : ctx.get_egraph().enodes_of(f)) {
             expr* t = n->get_arg(idx)->get_expr();
             values.push_back(mdl(t));
+            if (!m.is_value(values.back())) 
+                return expr_ref(m.mk_var(idx, srt), m);
             md->v2t.insert(values.back(), t);
             md->t2v.insert(t, values.back());
         }
@@ -299,6 +299,11 @@ namespace q {
         auto term = [&](unsigned j) {
             return md->v2t[md->values[j]];
         };
+        
+#if 0
+        for (unsigned j = 0; j < sz; ++j)
+            std::cout << mk_pp(md->values[j], m) << "\n";
+#endif
 
         expr* arg = t->get_arg(i);
 
