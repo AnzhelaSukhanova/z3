@@ -161,12 +161,18 @@ struct param_descrs::imp {
         bool operator()(symbol const & s1, symbol const & s2) const { return ::lt(s1, s2); }        
     };
 
-    void display(std::ostream & out, unsigned indent, bool smt2_style, bool include_descr) const {
+    void display(std::ostream & out, unsigned indent, bool smt2_style, bool include_descr, bool markdown) const {
         svector<symbol> names;
         for (auto const& kv : m_info) {
             names.push_back(kv.m_key);
         }
         std::sort(names.begin(), names.end(), symlt());
+        if (names.empty())
+            return;
+        if (markdown) {
+            out << " Parameter | Type | Description | Default\n";
+            out << " ----------|------|-------------|--------\n";            
+        }
         for (symbol const& name : names) {
             for (unsigned i = 0; i < indent; i++) out << " ";
             if (smt2_style)
@@ -186,10 +192,30 @@ struct param_descrs::imp {
             info d;
             m_info.find(name, d);
             SASSERT(d.m_descr);
-            out << " (" << d.m_kind << ")";
-            if (include_descr)
+            if (markdown) 
+                out << " | " << d.m_kind << " ";
+            else
+                out << " (" << d.m_kind << ")";
+            if (markdown) {
+                out << " | ";
+                std::string desc;
+                for (auto ch : std::string(d.m_descr)) {
+                    switch (ch) {
+                    case '<': desc += "&lt;"; break;
+                    case '>': desc += "&gt;"; break;
+                    default: desc.push_back(ch);
+                    }
+                }
+                out << " " << desc;
+            }
+            else if (include_descr)
                 out << " " << d.m_descr;
-            if (d.m_default != nullptr)
+            if (markdown) {
+                out << " | ";
+                if (d.m_default)
+                    out << d.m_default;
+            }
+            else if (d.m_default != nullptr)
                 out << " (default: " << d.m_default << ")";
             out << "\n";
         }
@@ -280,23 +306,27 @@ char const* param_descrs::get_module(symbol const& name) const {
 }
 
 void param_descrs::display(std::ostream & out, unsigned indent, bool smt2_style, bool include_descr) const {
-    return m_imp->display(out, indent, smt2_style, include_descr);
+    return m_imp->display(out, indent, smt2_style, include_descr, false);
+}
+
+void param_descrs::display_markdown(std::ostream & out, bool smt2_style, bool include_descr) const {
+    return m_imp->display(out, 0, smt2_style, include_descr, true);
 }
 
 void insert_max_memory(param_descrs & r) {
-    r.insert("max_memory", CPK_UINT, "(default: infty) maximum amount of memory in megabytes.");
+    r.insert("max_memory", CPK_UINT, "(default: infty) maximum amount of memory in megabytes.", "4294967295");
 }
 
 void insert_max_steps(param_descrs & r) {
-    r.insert("max_steps", CPK_UINT, "(default: infty) maximum number of steps.");
+    r.insert("max_steps", CPK_UINT, "(default: infty) maximum number of steps.", "4294967295");
 }
 
 void insert_produce_models(param_descrs & r) {
-    r.insert("produce_models", CPK_BOOL, "(default: false) model generation.");
+    r.insert("produce_models", CPK_BOOL, "model generation.", "false");
 }
 
 void insert_produce_proofs(param_descrs & r) {
-    r.insert("produce_proofs", CPK_BOOL, "(default: false) proof generation.");
+    r.insert("produce_proofs", CPK_BOOL, "proof generation.", "false");
 }
 
 void insert_timeout(param_descrs & r) {

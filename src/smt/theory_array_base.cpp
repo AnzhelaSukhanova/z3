@@ -54,6 +54,20 @@ namespace smt {
         return r;
     }
 
+    app * theory_array_base::mk_select_reduce(unsigned num_args, expr * * args) {
+        array_util util(m);
+        while (util.is_store(args[0])) {
+            bool are_distinct = false;
+            for (unsigned i = 1; i < num_args && !are_distinct; ++i) 
+                are_distinct |= m.are_distinct(args[i], to_app(args[0])->get_arg(i));
+            if (!are_distinct)
+                break;
+            args[0] = to_app(to_app(args[0])->get_arg(0));
+        }
+        return mk_select(num_args, args);
+    }
+
+
     app * theory_array_base::mk_store(unsigned num_args, expr * const * args) {
         return m.mk_app(get_family_id(), OP_STORE, 0, nullptr, num_args, args);
     }
@@ -484,6 +498,8 @@ namespace smt {
             return p->get_arg(0)->get_root() == n->get_root();
         if (is_map(p))
             return true;
+        if (is_store(p))
+            return true;
         return false;
     }
 
@@ -513,7 +529,7 @@ namespace smt {
             // issue #3532, #3529
             // 
             if (ctx.is_shared(r) || is_select_arg(r)) {
-                TRACE("array", tout << "new shared var: #" << r->get_owner_id() << "\n";);
+                TRACE("array", tout << "new shared var: #" << r->get_owner_id() << " " << is_select_arg(r) << "\n";);
                 theory_var r_th_var = r->get_th_var(get_id());
                 SASSERT(r_th_var != null_theory_var);
                 result.push_back(r_th_var);

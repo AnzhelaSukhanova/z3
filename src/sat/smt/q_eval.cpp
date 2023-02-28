@@ -47,21 +47,21 @@ namespace q {
             unsigned lim = m_indirect_nodes.size();
             lit l = c[i];
             lbool cmp = compare(n, binding, l.lhs, l.rhs, evidence);
+            TRACE("q", tout << l.lhs << " ~~ " << l.rhs << " is " << cmp << "\n";);
             switch (cmp) {
-            case l_false:
+            case l_false:                
                 m_indirect_nodes.shrink(lim);
                 if (!l.sign)
                     break;
                 c.m_watch = i;
                 return l_true;
-            case l_true:
+            case l_true:   
                 m_indirect_nodes.shrink(lim);
                 if (l.sign)
-                    break;
+                    break;                
                 c.m_watch = i;
                 return l_true;
             case l_undef:
-                TRACE("q", tout << l.lhs << " ~~ " << l.rhs << " is undef\n";);
                 if (idx != UINT_MAX) {
                     idx = UINT_MAX;
                     return l_undef;
@@ -124,11 +124,9 @@ namespace q {
             std::swap(t, s);
         }        
         unsigned sz = evidence.size();
-        unsigned count = 0;
         for (euf::enode* t1 : euf::enode_class(tn)) { 
             if (!t1->is_cgr())
                 continue;
-            ++count;
             expr* t2 = t1->get_expr();
             if ((c = compare_rec(n, binding, s, t2, evidence), c != l_undef)) {
                 evidence.push_back(euf::enode_pair(t1, tn));

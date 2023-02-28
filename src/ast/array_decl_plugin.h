@@ -45,8 +45,6 @@ enum array_op_kind {
     OP_ARRAY_EXT,
     OP_ARRAY_DEFAULT,
     OP_ARRAY_MAP,
-    OP_ARRAY_MAXDIFF,
-    OP_ARRAY_MINDIFF,
     OP_SET_UNION,
     OP_SET_INTERSECT,
     OP_SET_DIFFERENCE,
@@ -161,8 +159,6 @@ public:
     bool is_complement(expr* n) const { return is_app_of(n, m_fid, OP_SET_COMPLEMENT); }
     bool is_as_array(expr * n) const { return is_app_of(n, m_fid, OP_AS_ARRAY); }
     bool is_as_array(expr * n, func_decl*& f) const { return is_as_array(n) && (f = get_as_array_func_decl(n), true); }
-    bool is_maxdiff(expr const* n) const { return is_app_of(n, m_fid, OP_ARRAY_MAXDIFF); }
-    bool is_mindiff(expr const* n) const { return is_app_of(n, m_fid, OP_ARRAY_MINDIFF); }
     bool is_set_has_size(expr* e) const { return is_app_of(e, m_fid, OP_SET_HAS_SIZE); }
     bool is_set_card(expr* e) const { return is_app_of(e, m_fid, OP_SET_CARD); }
     bool is_select(func_decl* f) const { return is_decl_of(f, m_fid, OP_SELECT); }
@@ -178,6 +174,7 @@ public:
     bool is_default(expr* n) const { return is_app_of(n, m_fid, OP_ARRAY_DEFAULT); }
     bool is_subset(expr const* n) const { return is_app_of(n, m_fid, OP_SET_SUBSET); }
     bool is_as_array(func_decl* f, func_decl*& g) const { return is_decl_of(f, m_fid, OP_AS_ARRAY) && (g = get_as_array_func_decl(f), true); }
+    bool is_map(func_decl* f, func_decl*& g) const { return is_map(f) && (g = get_map_func_decl(f), true); }
     func_decl * get_as_array_func_decl(expr * n) const;
     func_decl * get_as_array_func_decl(func_decl* f) const;
     func_decl * get_map_func_decl(func_decl* f) const;
@@ -188,8 +185,6 @@ public:
     bool is_store_ext(expr* e, expr_ref& a, expr_ref_vector& args, expr_ref& value);
 
     MATCH_BINARY(is_subset);
-    MATCH_BINARY(is_maxdiff);
-    MATCH_BINARY(is_mindiff);
 };
 
 class array_util : public array_recognizers {
@@ -209,6 +204,10 @@ public:
     }
 
     app * mk_store(ptr_vector<expr> const& args) const {
+        return mk_store(args.size(), args.data());
+    }
+
+    app* mk_store(ptr_buffer<expr> const& args) const {
         return mk_store(args.size(), args.data());
     }
 

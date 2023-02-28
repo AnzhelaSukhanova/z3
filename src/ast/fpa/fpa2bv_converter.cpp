@@ -147,11 +147,36 @@ void fpa2bv_converter::mk_distinct(func_decl * f, unsigned num, expr * const * a
 
 void fpa2bv_converter::mk_numeral(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
     SASSERT(num == 0);
-    SASSERT(f->get_num_parameters() == 1);
-    SASSERT(f->get_parameter(0).is_external());
-    unsigned p_id = f->get_parameter(0).get_ext_id();
-    mpf const & v = m_plugin->get_value(p_id);
-    mk_numeral(f->get_range(), v, result);
+    sort* s = f->get_range();
+    if (f->get_num_parameters() == 1) {
+        SASSERT(f->get_parameter(0).is_external());
+        unsigned p_id = f->get_parameter(0).get_ext_id();
+        mpf const& v = m_plugin->get_value(p_id);
+        mk_numeral(s, v, result);
+        return;
+    }
+    scoped_mpf v(m_mpf_manager);   
+    unsigned ebits = m_util.get_ebits(s), sbits = m_util.get_sbits(s);
+    switch (f->get_decl_kind()) {
+    case OP_FPA_PLUS_INF:
+        m_util.fm().mk_pinf(ebits, sbits, v);
+        break;
+    case OP_FPA_MINUS_INF:
+        m_util.fm().mk_ninf(ebits, sbits, v);
+        break;
+    case OP_FPA_NAN:        
+        m_util.fm().mk_nan(ebits, sbits, v);
+        break;
+    case OP_FPA_PLUS_ZERO:
+        m_util.fm().mk_pzero(ebits, sbits, v);
+        break;
+    case OP_FPA_MINUS_ZERO:
+        m_util.fm().mk_nzero(ebits, sbits, v);
+        break;
+    default:
+        UNREACHABLE();
+    }
+    mk_numeral(s, v, result);
 }
 
 void fpa2bv_converter::mk_numeral(sort * s, mpf const & v, expr_ref & result) {
@@ -2784,6 +2809,8 @@ void fpa2bv_converter::mk_to_fp_real(func_decl * f, sort * s, expr * rm, expr * 
 
         expr * e = m.mk_eq(m_util.mk_to_real(result), x);
         m_extra_assertions.push_back(e);
+        // x = 0 -> result = 0+
+        m_extra_assertions.push_back(m.mk_implies(m.mk_eq(x, zero), m.mk_eq(result, m_util.mk_pzero(result->get_sort()))));
     }
 
     SASSERT(is_well_sorted(m, result));
@@ -3263,7 +3290,7 @@ void fpa2bv_converter::mk_to_ieee_bv_unspecified(func_decl * f, unsigned num, ex
 void fpa2bv_converter::mk_to_ieee_bv_i(func_decl * f, unsigned num, expr * const * args, expr_ref & result)
 {
     func_decl_ref fu(m.mk_func_decl(f->get_family_id(), OP_FPA_TO_IEEE_BV, 0, nullptr, num, args), m);
-    mk_to_bv(f, num, args, true, result);
+    mk_to_ieee_bv(fu, num, args, result);
 }
 
 void fpa2bv_converter::mk_to_bv(func_decl * f, unsigned num, expr * const * args, bool is_signed, expr_ref & result) {
@@ -3406,8 +3433,14 @@ void fpa2bv_converter::mk_to_bv(func_decl * f, unsigned num, expr * const * args
     }
     else {
         expr_ref ll(m);
-        ll = m_bv_util.mk_sign_extend(3, m_bv_util.mk_concat(bv1, m_bv_util.mk_numeral(0, bv_sz-1)));
-        ul = m_bv_util.mk_zero_extend(4, m_bv_util.mk_bv_neg(m_bv_util.mk_numeral(1, bv_sz-1)));
+        ll = bv1;
+        if (bv_sz > 1)
+            ll = m_bv_util.mk_concat(bv1, m_bv_util.mk_numeral(0, bv_sz - 1));
+        ll = m_bv_util.mk_sign_extend(3, ll);
+        if (bv_sz > 1)
+            ul = m_bv_util.mk_zero_extend(4, m_bv_util.mk_bv_neg(m_bv_util.mk_numeral(1, bv_sz - 1)));
+        else
+            ul = m_bv_util.mk_numeral(0, 4);
         ovfl = m.mk_or(ovfl, m_bv_util.mk_sle(pre_rounded, m_bv_util.mk_bv_neg(m_bv_util.mk_numeral(1, bv_sz + 3))));
         pre_rounded = m.mk_ite(x_is_neg, m_bv_util.mk_bv_neg(pre_rounded), pre_rounded);
         in_range = m.mk_and(m.mk_not(ovfl),
@@ -3444,12 +3477,12 @@ void fpa2bv_converter::mk_to_sbv(func_decl * f, unsigned num, expr * const * arg
 
 void fpa2bv_converter::mk_to_ubv_i(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
     func_decl_ref fu(m.mk_func_decl(f->get_family_id(), OP_FPA_TO_UBV, 0, nullptr, num, args), m);
-    mk_to_bv(f, num, args, false, result);
+    mk_to_bv(fu, num, args, false, result);
 }
 
 void fpa2bv_converter::mk_to_sbv_i(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
     func_decl_ref fu(m.mk_func_decl(f->get_family_id(), OP_FPA_TO_SBV, 0, nullptr, num, args), m);
-    mk_to_bv(f, num, args, true, result);
+    mk_to_bv(fu, num, args, true, result);
 }
 
 expr_ref fpa2bv_converter::nan_wrap(expr * n) {
@@ -3498,7 +3531,7 @@ void fpa2bv_converter::mk_to_real_unspecified(func_decl * f, unsigned num, expr 
 
 void fpa2bv_converter::mk_to_real_i(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {
     func_decl_ref fu(m.mk_func_decl(f->get_family_id(), OP_FPA_TO_REAL, 0, nullptr, num, args), m);
-    mk_to_real(f, num, args, result);
+    mk_to_real(fu, num, args, result);
 }
 
 void fpa2bv_converter::mk_fp(func_decl * f, unsigned num, expr * const * args, expr_ref & result) {

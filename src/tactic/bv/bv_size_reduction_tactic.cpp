@@ -24,7 +24,7 @@ Notes:
 #include "tactic/tactical.h"
 #include "ast/bv_decl_plugin.h"
 #include "ast/rewriter/expr_replacer.h"
-#include "tactic/generic_model_converter.h"
+#include "ast/converters/generic_model_converter.h"
 #include "ast/ast_smt2_pp.h"
 
 namespace {
@@ -112,6 +112,7 @@ public:
         unsigned bv_sz;
         expr * f, * lhs, * rhs;
 
+#if 0
         auto match_bitmask = [&](expr* lhs, expr* rhs) {
             unsigned lo, hi;
             expr* arg;
@@ -131,7 +132,8 @@ public:
             update_unsigned_upper(to_app(arg), val);
             return true;
         };
-            
+#endif
+
         for (unsigned i = 0; i < sz; i++) {
             bool negated = false;
             f = g.form(i);            

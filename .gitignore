@@ -22,6 +22,7 @@ ocamlz3
 # Directories with generated code and documentation
 release/*
 build/*
+trace/*
 build-dist/*
 dist/*
 src/out/*
@@ -81,6 +82,8 @@ src/api/js/node_modules/
 src/api/js/build/
 src/api/js/**/*.__GENERATED__.*
 debug/*
+examples/python/z3
+examples/python/libz3.dll
 
 out/**
 *.bak
@@ -92,3 +95,5 @@ CMakeSettings.json
 # Editor temp files
 *.swp
 .DS_Store
+dbg/**
+*.wsp

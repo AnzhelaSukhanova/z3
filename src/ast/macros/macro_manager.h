@@ -29,7 +29,7 @@ Revision History:
    \brief Macros are universally quantified formulas of the form:
      (forall X  (= (f X) T[X]))
      (forall X  (iff (f X) T[X]))
-   where T[X] does not contain X.
+   where T[X] does not contain f.
 
    This class is responsible for storing macros and expanding them.
    It has support for backtracking and tagging declarations in an expression as forbidded for being macros.
@@ -47,6 +47,7 @@ class macro_manager {
     expr_dependency_ref_vector       m_macro_deps;
     obj_hashtable<func_decl>         m_forbidden_set;
     func_decl_ref_vector             m_forbidden;
+    obj_hashtable<func_decl>         m_unsafe_macros;
     struct scope {
         unsigned m_decls_lim;
         unsigned m_forbidden_lim;
@@ -72,9 +73,7 @@ public:
     void push_scope();
     void pop_scope(unsigned num_scopes);
     void reset();
-    void mark_forbidden(unsigned n, expr * const * exprs);
     void mark_forbidden(unsigned n, justified_expr const * exprs);
-    void mark_forbidden(expr * e) { mark_forbidden(1, &e); }
     bool is_forbidden(func_decl * d) const { return m_forbidden_set.contains(d); }
     obj_hashtable<func_decl> const & get_forbidden_set() const { return m_forbidden_set; }
     void display(std::ostream & out);
@@ -86,7 +85,7 @@ public:
     quantifier * get_macro_quantifier(func_decl * f) const { quantifier * q = nullptr; m_decl2macro.find(f, q); return q; }
     void get_head_def(quantifier * q, func_decl * d, app * & head, expr_ref & def, bool& revert) const;
     void expand_macros(expr * n, proof * pr, expr_dependency * dep, expr_ref & r, proof_ref & new_pr, expr_dependency_ref & new_dep);
-
+    obj_hashtable<func_decl>& unsafe_macros() { return m_unsafe_macros; }
 
 };
 

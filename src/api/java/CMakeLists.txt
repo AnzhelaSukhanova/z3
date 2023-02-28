@@ -29,8 +29,6 @@ add_custom_command(OUTPUT "${Z3_JAVA_NATIVE_JAVA}" "${Z3_JAVA_NATIVE_CPP}"
     ${Z3_FULL_PATH_API_HEADER_FILES_TO_SCAN}
     "${PROJECT_SOURCE_DIR}/scripts/update_api.py"
     ${Z3_GENERATED_FILE_EXTRA_DEPENDENCIES}
-    # FIXME: When update_api.py no longer uses ``mk_util`` drop this dependency
-    "${PROJECT_SOURCE_DIR}/scripts/mk_util.py"
   COMMENT "Generating \"${Z3_JAVA_NATIVE_JAVA}\" and \"${Z3_JAVA_NATIVE_CPP}\""
   USES_TERMINAL
 )
@@ -167,6 +165,8 @@ set(Z3_JAVA_JAR_SOURCE_FILES
   SeqExpr.java
   SeqSort.java
   SetSort.java
+  Simplifier.java
+  SimplifierDecRefQueue.java
   SolverDecRefQueue.java
   Solver.java
   Sort.java

@@ -20,6 +20,7 @@ Revision History:
 #include "sat/sat_types.h"
 #include "sat/sat_params.hpp"
 #include "sat/sat_simplifier_params.hpp"
+#include "params/solver_params.hpp"
 
 
 namespace sat {
@@ -31,6 +32,8 @@ namespace sat {
 
     void config::updt_params(params_ref const & _p) {
         sat_params p(_p);
+        solver_params sp(_p);
+
         m_max_memory  = megabytes_to_bytes(p.max_memory());
 
         symbol s = p.restart();
@@ -43,7 +46,7 @@ namespace sat {
         else if (s == symbol("static"))
             m_restart = RS_STATIC;
         else
-            throw sat_param_exception("invalid restart strategy");
+            throw sat_param_exception("invalid restart strategy. Use ema (default), luby, geometric, static");
 
         m_fast_glue_avg = p.restart_emafastglue();
         m_slow_glue_avg = p.restart_emaslowglue();
@@ -62,6 +65,8 @@ namespace sat {
             m_phase = PS_RANDOM;
         else if (s == symbol("frozen"))
             m_phase = PS_FROZEN;
+        else if (s == symbol("local_search"))
+            m_phase = PS_LOCAL_SEARCH;
         else
             throw sat_param_exception("invalid phase selection strategy: always_false, always_true, basic_caching, caching, random");
 
@@ -194,10 +199,19 @@ namespace sat {
         m_drat_check_unsat  = p.drat_check_unsat();
         m_drat_check_sat  = p.drat_check_sat();
         m_drat_file       = p.drat_file();
-        m_drat            = (m_drat_check_unsat || m_drat_file.is_non_empty_string() || m_drat_check_sat) && p.threads() == 1;
+        m_smt_proof_check = p.smt_proof_check();
+        m_smt_proof_check_rup = p.smt_proof_check_rup();
+        m_drat_disable = p.drat_disable();
+        m_drat            =
+            !m_drat_disable && p.threads() == 1 &&
+            (sp.lemmas2console() ||
+             m_drat_check_unsat ||
+             m_drat_file.is_non_empty_string() ||
+             sp.proof_log().is_non_empty_string() ||
+             m_smt_proof_check ||
+             m_drat_check_sat);
         m_drat_binary     = p.drat_binary();
         m_drat_activity   = p.drat_activity();
-        m_drup_trim       = p.drup_trim();
         m_dyn_sub_res     = p.dyn_sub_res();
 
         // Parameters used in Liang, Ganesh, Poupart, Czarnecki AAAI 2016.
@@ -248,13 +262,9 @@ namespace sat {
         m_card_solver = p.cardinality_solver();
         m_xor_solver = false; // prevent users from playing with this option
 
-        sat_simplifier_params sp(_p);
-        m_elim_vars = sp.elim_vars();
+        sat_simplifier_params ssp(_p);
+        m_elim_vars = ssp.elim_vars();
 
-#if 0
-        if (m_drat && (m_xor_solver || m_card_solver)) 
-            throw sat_param_exception("DRAT checking only works for pure CNF");
-#endif
     }
 
     void config::collect_param_descrs(param_descrs & r) {

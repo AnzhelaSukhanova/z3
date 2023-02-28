@@ -46,7 +46,7 @@ protected:
     format_ns::format * pp_as(format_ns::format * fname, sort * s);
     format_ns::format * pp_signature(format_ns::format * f_name, func_decl * f);
 public:
-    virtual ~smt2_pp_environment() {}
+    virtual ~smt2_pp_environment() = default;
     virtual ast_manager & get_manager() const = 0;
     virtual arith_util & get_autil() = 0;
     virtual bv_util & get_bvutil() = 0;
@@ -104,7 +104,8 @@ std::ostream & ast_smt2_pp(std::ostream & out, expr * n, smt2_pp_environment & e
                            unsigned num_vars = 0, char const * var_prefix = nullptr);
 std::ostream & ast_smt2_pp(std::ostream & out, sort * s, smt2_pp_environment & env, params_ref const & p = params_ref(), unsigned indent = 0);
 std::ostream & ast_smt2_pp(std::ostream & out, func_decl * f, smt2_pp_environment & env, params_ref const & p = params_ref(), unsigned indent = 0, char const* cmd = "declare-fun");
-std::ostream & ast_smt2_pp(std::ostream & out, func_decl * f, expr* e, smt2_pp_environment & env, params_ref const & p = params_ref(), unsigned indent = 0, char const* cmd = "define-fun");
+std::ostream & ast_smt2_pp(std::ostream & out, func_decl * f, expr* e, smt2_pp_environment & env, params_ref const & p = params_ref(), unsigned indent = 0, char const* cmd = "define-fun", bool reverse = false);
+std::ostream & ast_smt2_pp_rev(std::ostream & out, func_decl * f, expr* e, smt2_pp_environment & env, params_ref const & p = params_ref(), unsigned indent = 0, char const* cmd = "define-fun");
 std::ostream & ast_smt2_pp(std::ostream & out, symbol const& s, bool is_skolem, smt2_pp_environment & env, params_ref const& p = params_ref());
 std::ostream & ast_smt2_pp_recdefs(std::ostream & out, vector<std::pair<func_decl*, expr*>> const& funs, smt2_pp_environment & env, params_ref const & p = params_ref());
 

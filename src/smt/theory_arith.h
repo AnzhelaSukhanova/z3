@@ -294,7 +294,7 @@ namespace smt {
                 m_bound_kind(k),
                 m_atom(a) {
             }
-            virtual ~bound() {}
+            virtual ~bound() = default;
             theory_var get_var() const { return m_var; }
             bound_kind get_bound_kind() const { return static_cast<bound_kind>(m_bound_kind); }
             bool is_atom() const { return m_atom; }
@@ -436,9 +436,8 @@ namespace smt {
         theory_arith_params &   m_params;
         arith_util              m_util;
         arith_eq_solver         m_arith_eq_solver;
-        bool                    m_found_unsupported_op;
-        bool                    m_found_underspecified_op;
         ptr_vector<app>         m_underspecified_ops;
+        ptr_vector<app>         m_unsupported_ops;
         arith_eq_adapter        m_arith_eq_adapter;
         vector<row>             m_rows;
         svector<unsigned>       m_dead_rows;
@@ -544,9 +543,6 @@ namespace smt {
         unsigned small_lemma_size() const { return m_params.m_arith_small_lemma_size; }
         bool relax_bounds() const { return m_params.m_arith_stronger_lemmas; }
         bool skip_big_coeffs() const { return m_params.m_arith_skip_rows_with_big_coeffs; }
-        bool dump_lemmas() const { return m_params.m_arith_dump_lemmas; }
-        void dump_lemmas(literal l, antecedents const& ante);
-        void dump_lemmas(literal l, derived_bound const& ante);
         bool process_atoms() const;
         unsigned get_num_conflicts() const { return m_num_conflicts; }
         var_kind get_var_kind(theory_var v) const { return m_data[v].kind(); }

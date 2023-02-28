@@ -47,7 +47,7 @@ Notes:
 #include "model/model_v2_pp.h"
 #include "model/model_params.hpp"
 #include "tactic/tactic_exception.h"
-#include "tactic/generic_model_converter.h"
+#include "ast/converters/generic_model_converter.h"
 #include "solver/smt_logics.h"
 #include "cmd_context/basic_cmds.h"
 #include "cmd_context/cmd_context.h"
@@ -546,6 +546,7 @@ cmd_context::cmd_context(bool main_ctx, ast_manager * m, symbol const & l):
     install_basic_cmds(*this);
     install_ext_basic_cmds(*this);
     install_core_tactic_cmds(*this);
+    install_core_simplifier_cmds(*this);
     m_mcs.push_back(nullptr);
     SASSERT(m != 0 || !has_manager());
     if (m_main_ctx) {
@@ -559,8 +560,8 @@ cmd_context::~cmd_context() {
     }
     pop(m_scopes.size());
     finalize_cmds();
-    finalize_tactic_cmds();
-    finalize_probes();
+    finalize_tactic_manager();
+    m_proof_cmds = nullptr;
     reset(true);
     m_mcs.reset();
     m_solver = nullptr;
@@ -603,6 +604,8 @@ void cmd_context::global_params_updated() {
     if (m_opt) {
         get_opt()->updt_params(gparams::get_module("opt"));
     }
+    if (m_proof_cmds)
+        m_proof_cmds->updt_params(gparams::get_module("solver"));
 }
 
 void cmd_context::set_produce_models(bool f) {
@@ -618,10 +621,15 @@ void cmd_context::set_produce_unsat_cores(bool f) {
 }
 
 void cmd_context::set_produce_proofs(bool f) {
-    SASSERT(!has_assertions() || m_params.m_proof == f);
-    if (has_manager()) 
-        m().toggle_proof_mode(f ? PGM_ENABLED : PGM_DISABLED);
+    if (m_params.m_proof == f)
+        return;
+    SASSERT(!has_assertions());
     m_params.m_proof = f;
+    if (has_manager()) {
+        m().toggle_proof_mode(f ? PGM_ENABLED : PGM_DISABLED);
+        if (m_solver_factory)
+            mk_solver();
+    }
 }
 
 
@@ -1054,7 +1062,7 @@ func_decl * cmd_context::find_func_decl(symbol const & s, unsigned num_indices, 
     if (f) 
         return f;
     builtin_decl d;
-    if (domain && m_builtin_decls.find(s, d)) {
+    if ((arity == 0 || domain) && m_builtin_decls.find(s, d)) {
         family_id fid = d.m_fid;
         decl_kind k   = d.m_decl;
         // Hack: if d.m_next != 0, we use domain[0] (if available) to decide which plugin we use.
@@ -1077,7 +1085,12 @@ func_decl * cmd_context::find_func_decl(symbol const & s, unsigned num_indices, 
             throw cmd_exception("invalid function declaration reference, invalid builtin reference ", s);
         return f;
     }
-    throw cmd_exception("invalid function declaration reference, unknown function ", s);
+    if (num_indices > 0 && m_func_decls.find(s, fs)) 
+        f = fs.find(m(), arity, domain, range);
+    if (f) 
+        return f;
+
+    throw cmd_exception("invalid function declaration reference, unknown indexed function ", s);
 }
 
 psort_decl * cmd_context::find_psort_decl(symbol const & s) const {
@@ -1126,12 +1139,10 @@ bool cmd_context::try_mk_builtin_app(symbol const & s, unsigned num_args, expr *
         fid = d2.m_fid;
         k   = d2.m_decl;
     }
-    if (num_indices == 0) {
-        result = m().mk_app(fid, k, 0, nullptr, num_args, args, range);
-    }
-    else {
-        result = m().mk_app(fid, k, num_indices, indices, num_args, args, range);
-    }
+    if (num_indices == 0) 
+        result = m().mk_app(fid, k, 0, nullptr, num_args, args, range);    
+    else 
+        result = m().mk_app(fid, k, num_indices, indices, num_args, args, range);    
     CHECK_SORT(result.get());
     return nullptr != result.get();
 }
@@ -2190,21 +2201,18 @@ void cmd_context::display_statistics(bool show_total_time, double total_time) {
 }
 
 
-expr_ref_vector cmd_context::tracked_assertions() {
-    expr_ref_vector result(m());
+vector<std::pair<expr*,expr*>> cmd_context::tracked_assertions() {
+    vector<std::pair<expr*,expr*>> result;
     if (assertion_names().size() == assertions().size()) {
         for (unsigned i = 0; i < assertions().size(); ++i) {
             expr* an  = assertion_names()[i];
             expr* asr = assertions()[i];
-            if (an) 
-                result.push_back(m().mk_implies(an, asr));
-            else 
-                result.push_back(asr);
+            result.push_back({ asr, an });
         }
     }
     else {
         for (expr * e : assertions()) 
-            result.push_back(e);
+            result.push_back({ e, nullptr});
     }
     return result;
 }

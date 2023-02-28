@@ -80,7 +80,7 @@ public:
         const unsigned sz = g->size();
         for (unsigned i = 0; i < sz; i++)
             for_each_expr(cp, visited, g->form(i));
-
+		
 		if (m_to_file) {
 			std::ofstream sout(".collect_stats.json");
 

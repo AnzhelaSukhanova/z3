@@ -13,7 +13,30 @@ Author:
 
     Leonardo (leonardo) 2011-10-26
 
-Notes:
+Tactic Documentation:
+
+## Tactic ctx-simplify
+
+### Short Description:
+
+The tactic performs simplifies sub-formulas using context built up by walking assertions and sub-formulas.
+
+### Example
+ 
+```z3
+  (declare-const p Bool)
+  (declare-const q Bool)
+  (declare-const r Bool)
+  (declare-fun f (Bool) Bool)
+  (assert p)
+  (assert (or (f p) (and r (or (not r) q))))
+  (apply ctx-simplify)
+```
+
+### Notes
+
+* supports proof terms with limited features
+
 
 --*/
 #pragma once
@@ -26,7 +49,7 @@ public:
     class simplifier {
         goal_num_occurs* m_occs;
     public:
-        virtual ~simplifier() {}
+        virtual ~simplifier() = default;
         virtual bool assert_expr(expr * t, bool sign) = 0;
         virtual bool simplify(expr* t, expr_ref& result) = 0;
         virtual bool may_simplify(expr* t) { return true; }

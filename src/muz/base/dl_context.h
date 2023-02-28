@@ -30,7 +30,7 @@ Revision History:
 #include "util/statistics.h"
 #include "util/params.h"
 #include "util/trail.h"
-#include "tactic/model_converter.h"
+#include "ast/converters/model_converter.h"
 #include "model/model2expr.h"
 #include "smt/params/smt_params.h"
 #include "muz/base/dl_rule_transformer.h"
@@ -305,7 +305,7 @@ namespace datalog {
         void register_predicate(func_decl * pred, bool named);
 
         /**
-           Restrict reltaions to set of predicates.
+           Restrict relations to set of predicates.
          */
         void restrict_predicates(func_decl_set const& preds);
 

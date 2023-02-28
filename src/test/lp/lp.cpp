@@ -1391,7 +1391,7 @@ void update_settings(argument_parser & args_parser, lp_settings& settings) {
         settings.set_random_seed(n);
     }
     if (get_int_from_args_parser("--simplex_strategy", args_parser, n)) {
-        settings.simplex_strategy() = static_cast<simplex_strategy_enum>(n);
+        settings.set_simplex_strategy(static_cast<simplex_strategy_enum>(n));
     }
 }
 
@@ -1899,7 +1899,7 @@ void find_dir_and_file_name(std::string a, std::string & dir, std::string& fn) {
 void process_test_file(std::string test_dir, std::string test_file_name, argument_parser & args_parser, std::string out_dir, unsigned max_iters, unsigned time_limit, unsigned & successes, unsigned & failures, unsigned & inconclusives);
 
 void solve_some_mps(argument_parser & args_parser) {
-    unsigned max_iters, time_limit;
+    unsigned max_iters = UINT_MAX, time_limit = UINT_MAX;
     get_time_limit_and_max_iters_from_parser(args_parser, time_limit);
     unsigned successes = 0;
     unsigned failures = 0;

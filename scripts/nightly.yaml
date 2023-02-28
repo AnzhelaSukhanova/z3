@@ -1,18 +1,17 @@
 variables:
-
   Major: '4'
-  Minor: '11'
-  Patch: '0'
-  NightlyVersion: $(Major).$(Minor).$(Patch).$(Build.BuildId)-$(Build.DefinitionName)
+  Minor: '12'
+  Patch: '2'
+  AssemblyVersion: $(Major).$(Minor).$(Patch).$(Build.BuildId)
+  NightlyVersion: $(AssemblyVersion)-$(Build.DefinitionName)
 
 stages:
 - stage: Build
   jobs:
-
   - job: Mac
     displayName: "Mac Build"
     pool:
-      vmImage: "macOS-latest"
+      vmImage: "macOS-11"
     steps:
     - script: python scripts/mk_unix_dist.py --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk
     - script: git clone https://github.com/z3prover/z3test z3test
@@ -23,11 +22,10 @@ stages:
         artifactName: 'Mac'
         targetPath: $(Build.ArtifactStagingDirectory)
 
-
   - job: MacArm64
     displayName: "Mac ARM64 Build"
     pool:
-      vmImage: "macOS-latest"
+      vmImage: "macOS-11"
     steps:
     - script: python scripts/mk_unix_dist.py --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk --arch=arm64 --os=osx-11.0
     - script: git clone https://github.com/z3prover/z3test z3test
@@ -37,6 +35,19 @@ stages:
         artifactName: 'MacArm64'
         targetPath: $(Build.ArtifactStagingDirectory)
 
+  - job: Ubuntu20
+    displayName: "Ubuntu20 build"
+    pool:
+      vmImage: "ubuntu-20.04"
+    steps:
+    - script: python scripts/mk_unix_dist.py --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk
+    - script: git clone https://github.com/z3prover/z3test z3test
+    - script: python z3test/scripts/test_benchmarks.py build-dist/z3 z3test/regressions/smt2    
+    - script: cp dist/*.zip $(Build.ArtifactStagingDirectory)/.
+    - task: PublishPipelineArtifact@0
+      inputs:
+        artifactName: 'Ubuntu-20.04'
+        targetPath: $(Build.ArtifactStagingDirectory)
 
   - job: Ubuntu
     displayName: "Ubuntu build"
@@ -55,7 +66,7 @@ stages:
   - job: UbuntuDoc
     displayName: "Ubuntu Doc build"
     pool:
-      vmImage: "Ubuntu-latest"
+      vmImage: "ubuntu-latest"
     steps:
     - script: sudo apt-get install ocaml opam libgmp-dev
     - script: opam init -y
@@ -76,6 +87,7 @@ stages:
         eval `opam config env` 
         cd doc
         python mk_api_doc.py --mld --z3py-package-path=../build/python/z3
+        python mk_params_doc.py 
         mkdir api/html/ml
         ocamldoc -html -d api/html/ml -sort -hide Z3 -I $( ocamlfind query zarith ) -I ../build/api/ml ../build/api/ml/z3enums.mli ../build/api/ml/z3.mli
         cd ..
@@ -92,8 +104,8 @@ stages:
       name: ManyLinux
     displayName: "ManyLinux build"
     pool:
-      vmImage: "Ubuntu-18.04"
-    container: "quay.io/pypa/manylinux2010_x86_64:latest"
+      vmImage: "ubuntu-latest"
+    container: "quay.io/pypa/manylinux2014_x86_64:latest"
     steps:
     - script: $(python) scripts/mk_unix_dist.py --nodotnet --nojava
     - script: git clone https://github.com/z3prover/z3test z3test
@@ -111,7 +123,7 @@ stages:
 #      name: MuslLinux
 #    displayName: "MuslLinux build"
 #    pool:
-#      vmImage: "Ubuntu-18.04"
+#      vmImage: "ubuntu-latest"
 #    container: "quay.io/pypa/musllinux_1_1_x86_64:latest"
 #    steps:
 #    - script: $(python) scripts/mk_unix_dist.py --nodotnet --nojava
@@ -123,7 +135,6 @@ stages:
 #        artifactName: '$(name)Build'
 #        targetPath: $(Build.ArtifactStagingDirectory)
 
-
   - job: Windows32
     displayName: "Windows 32-bit build"
     pool:
@@ -134,6 +145,7 @@ stages:
         script:
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x86 &
           python scripts\mk_win_dist.py
+            --assembly-version=$(AssemblyVersion)
             --x86-only
             --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk
             --zip
@@ -146,6 +158,22 @@ stages:
       inputs:
         targetPath: $(Build.ArtifactStagingDirectory)
         artifactName: 'Windows32'
+    - task: CopyFiles@2
+      displayName: 'Collect Symbols'
+      inputs:
+        sourceFolder: dist
+        contents: '**/*.pdb'
+        targetFolder: '$(Build.ArtifactStagingDirectory)/symbols'
+    # Publish symbol archive to match nuget package
+    # Index your source code and publish symbols to a file share or Azure Artifacts symbol server
+    - task: PublishSymbols@2
+      inputs:
+        symbolsFolder: '$(Build.ArtifactStagingDirectory)/symbols'
+        searchPattern: '**/*.pdb' 
+        indexSources: false # Github not supported
+        publishSymbols: true
+        symbolServerType: TeamServices
+        detailedLog: true
 
   - job: Windows64
     displayName: "Windows 64-bit build"
@@ -157,6 +185,7 @@ stages:
         script:
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64 &
           python scripts\mk_win_dist.py
+            --assembly-version=$(AssemblyVersion)
             --x64-only
             --dotnet-key=$(Build.SourcesDirectory)/resources/z3.snk
             --zip
@@ -169,8 +198,22 @@ stages:
       inputs:
         targetPath: $(Build.ArtifactStagingDirectory)
         artifactName: 'Windows64'
-
-        
+    - task: CopyFiles@2
+      displayName: 'Collect Symbols'
+      inputs:
+        sourceFolder: dist
+        contents: '**/*.pdb'
+        targetFolder: '$(Build.ArtifactStagingDirectory)/symbols'
+    # Publish symbol archive to match nuget package
+    # Index your source code and publish symbols to a file share or Azure Artifacts symbol server
+    - task: PublishSymbols@2
+      inputs:
+        symbolsFolder: '$(Build.ArtifactStagingDirectory)/symbols'
+        searchPattern: '**/*.pdb' 
+        indexSources: false # Github not supported
+        publishSymbols: true
+        symbolServerType: TeamServices
+        detailedLog: true
 
 - stage: Package
   jobs:
@@ -232,7 +275,7 @@ stages:
         minorVersion: $(Minor)
         patchVersion: $(Patch)
         arguments: 'pack $(Agent.TempDirectory)\package\out\Microsoft.Z3.sym.nuspec -Version $(NightlyVersion) -OutputDirectory $(Build.ArtifactStagingDirectory) -Verbosity detailed -Symbols -SymbolPackageFormat snupkg -BasePath $(Agent.TempDirectory)\package\out' 
-    - task: EsrpCodeSigning@1
+    - task: EsrpCodeSigning@2
       continueOnError: true
       displayName: 'Sign Package'
       inputs:
@@ -260,7 +303,7 @@ stages:
         SessionTimeout: '60'
         MaxConcurrency: '50'
         MaxRetryAttempts: '5'
-    - task: EsrpCodeSigning@1
+    - task: EsrpCodeSigning@2
       continueOnError: true 
       displayName: 'Sign Symbol Package'
       inputs:
@@ -337,7 +380,7 @@ stages:
         minorVersion: $(Minor)
         patchVersion: $(Patch)
         arguments: 'pack $(Agent.TempDirectory)\package\out\Microsoft.Z3.x86.sym.nuspec -Version $(NightlyVersion) -OutputDirectory $(Build.ArtifactStagingDirectory) -Verbosity detailed -Symbols -SymbolPackageFormat snupkg -BasePath $(Agent.TempDirectory)\package\out' 
-    - task: EsrpCodeSigning@1
+    - task: EsrpCodeSigning@2
       continueOnError: true 
       displayName: 'Sign Package'
       inputs:
@@ -365,7 +408,7 @@ stages:
         SessionTimeout: '60'
         MaxConcurrency: '50'
         MaxRetryAttempts: '5'
-    - task: EsrpCodeSigning@1
+    - task: EsrpCodeSigning@2
       continueOnError: true 
       displayName: 'Sign Symbol Package'
       inputs:
@@ -484,6 +527,11 @@ stages:
         artifactName: 'Ubuntu'
         targetPath: tmp
     - task: DownloadPipelineArtifact@2
+      displayName: "Download Ubuntu-20.04"
+      inputs:
+        artifactName: 'Ubuntu-20.04'
+        targetPath: tmp
+    - task: DownloadPipelineArtifact@2
       displayName: "Download Doc"
       inputs:
         artifactName: 'UbuntuDoc'
@@ -506,7 +554,7 @@ stages:
     - task: GitHubRelease@0
       continueOnError: true 
       inputs:
-        gitHubConnection: Z3GitHub
+        gitHubConnection: Z3Prover
         repositoryName: 'Z3Prover/z3'
         action: 'delete'
 #     target: '$(Build.SourceVersion)'
@@ -515,7 +563,7 @@ stages:
     - task: GitHubRelease@0
       continueOnError: true 
       inputs:
-        gitHubConnection: Z3GitHub
+        gitHubConnection: Z3Prover
         repositoryName: 'Z3Prover/z3'
         action: 'create'
 #     target: '$(Build.SourceVersion)'
@@ -555,15 +603,16 @@ stages:
       displayName: 'NuGet Nightly x64 push'
       inputs:
         command: push
-        publishVstsFeed: 'Z3Nightly'
+        publishVstsFeed: 'Z3Build/Z3-Nightly-Builds'
         packagesToPush: $(Agent.TempDirectory)/x64/*.nupkg
         allowPackageConflicts: true
     - task: NuGetCommand@2
       displayName: 'NuGet Nightly x86 push'
       inputs:
         command: push
-        publishVstsFeed: 'Z3Nightly'
+        publishVstsFeed: 'Z3Build/Z3-Nightly-Builds'
         packagesToPush: $(Agent.TempDirectory)/x86/*.nupkg
         allowPackageConflicts: true
-
+    
+       
 # TBD: run regression tests on generated binaries.

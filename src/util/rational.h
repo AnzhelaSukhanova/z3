@@ -56,6 +56,8 @@ public:
     
     explicit rational(char const * v) { m().set(m_val, v); }
 
+    explicit rational(unsigned const * v, unsigned sz) { m().set(m_val, sz, v); }
+
     struct i64 {};
     rational(int64_t i, i64) { m().set(m_val, i); }
 
@@ -138,21 +140,15 @@ public:
         m().set(m_val, r.m_val);
         return *this;
     }
-private:
-    rational & operator=(bool) {
-        UNREACHABLE(); return *this;
-    }
-    inline rational operator*(bool  r1) const {
-        UNREACHABLE();
-        return *this;
-    }
 
-public:
+    rational & operator=(bool) = delete;
+    rational operator*(bool  r1) const = delete;
+
     rational & operator=(int v) {
         m().set(m_val, v);
         return *this;
     }
-    rational & operator=(double v) { UNREACHABLE(); return *this; }
+    rational & operator=(double v) = delete;
 
     friend inline rational numerator(rational const & r) { rational result; m().get_numerator(r.m_val, result.m_val); return result; }
     
@@ -230,6 +226,12 @@ public:
     friend inline rational machine_div_rem(rational const & r1, rational const & r2, rational & rem) {
         rational r;
         rational::m().machine_idiv_rem(r1.m_val, r2.m_val, r.m_val, rem.m_val);
+        return r;
+    }
+
+    friend inline rational machine_div2k(rational const & r1, unsigned k) {
+        rational r;
+        rational::m().machine_idiv2k(r1.m_val, k, r.m_val);
         return r;
     }
 
@@ -359,6 +361,7 @@ public:
     }
 
     bool mult_inverse(unsigned num_bits, rational & result) const;
+    rational pseudo_inverse(unsigned num_bits) const;
 
     static rational const & zero() {
         return m_zero;
