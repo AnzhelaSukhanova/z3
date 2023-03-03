@@ -30,7 +30,7 @@ Notes:
 #include "ast/fpa_decl_plugin.h"
 #include "tactic/tactical.h"
 #include "util/stats.h"
-#include "tactic/tactic_params.hpp"
+#include "params/tactic_params.hpp"
 #include <iostream>
 
 #include "tactic/core/collect_statistics_tactic.h"
