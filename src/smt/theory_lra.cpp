@@ -19,9 +19,6 @@
 
   --*/
 #include "util/stopwatch.h"
-#include "math/lp/lp_solver.h"
-#include "math/lp/lp_primal_simplex.h"
-#include "math/lp/lp_dual_simplex.h"
 #include "math/lp/indexed_value.h"
 #include "math/lp/lar_solver.h"
 #include "math/lp/nla_solver.h"
@@ -439,6 +436,9 @@ class theory_lra::imp {
                     if (ctx().relevancy()) ctx().add_relevancy_dependency(n, mod);
                     if (m_nla && !a.is_numeral(n2)) {
                         // shortcut to create non-linear division axioms.
+                        internalize_term(to_app(n));
+                        internalize_term(to_app(n1));
+                        internalize_term(to_app(n2));
                         theory_var q = mk_var(n);
                         theory_var x = mk_var(n1);
                         theory_var y = mk_var(n2);
@@ -446,6 +446,9 @@ class theory_lra::imp {
                     }
                     if (a.is_numeral(n2) && a.is_bounded(n1)) {
                         ensure_nla();
+                        internalize_term(to_app(n));
+                        internalize_term(to_app(n1));
+                        internalize_term(to_app(n2));
                         theory_var q = mk_var(n);
                         theory_var x = mk_var(n1);
                         theory_var y = mk_var(n2);
@@ -1515,11 +1518,9 @@ public:
             } 
         }
         TRACE("arith", 
-              for (theory_var v = 0; v < sz; ++v) {
-                  if (th.is_relevant_and_shared(get_enode(v))) { 
+              for (theory_var v = 0; v < sz; ++v) 
+                  if (th.is_relevant_and_shared(get_enode(v)))  
                       tout << "v" << v << " ";
-                  }
-              }
               tout << "\n"; );
         if (!vars.empty()) {
             lp().random_update(vars.size(), vars.data());
@@ -3129,7 +3130,7 @@ public:
             return l_false;
         TRACE("arith", tout << "status treated as inconclusive: " << status << "\n";);
             // TENTATIVE_UNBOUNDED, UNBOUNDED, TENTATIVE_DUAL_UNBOUNDED, DUAL_UNBOUNDED, 
-            // FLOATING_POINT_ERROR, TIME_EXAUSTED, EMPTY, UNSTABLE
+            // TIME_EXAUSTED, EMPTY, UNSTABLE
         return l_undef;
     }
  
