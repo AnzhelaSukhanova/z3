@@ -899,7 +899,7 @@ extern "C" {
 		Z3_TRY;
 		LOG_Z3_find_term(c, a, kind, depth, is_removing, search_quantifier, path);
 		RESET_ERROR_CODE();
-		expr* result;
+		expr* result = nullptr;
 		unsigned cur_depth;
 		auto&& kind_info = to_decl_kind(c, (Z3_decl_kind)kind);
 		family_id fid = std::get<0>(kind_info);
@@ -952,7 +952,8 @@ extern "C" {
 		}
 		cur_path->setx(cur_depth, -1, 0);
 		// std::cout << mk_pp(result, mk_c(c)->m()) << std::endl;
-		RETURN_Z3(of_expr(result));
+        Z3_ast z3_ast_result = result != nullptr? of_expr(result) : Z3_mk_false(c);
+		RETURN_Z3(z3_ast_result);
 		Z3_CATCH_RETURN(nullptr);
 	}
 
