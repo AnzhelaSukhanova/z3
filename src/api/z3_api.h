@@ -5339,16 +5339,16 @@ extern "C" {
 							   Z3_ast a,
 							   unsigned kind,
 							   unsigned depth,
-							   bool is_removing,
+							   bool remove,
 							   bool search_quantifier,
 							   uint64_t path);
 
 	/**
 	 	\brief .
 
-		def_API('Z3_set_term', AST, (_in(CONTEXT), _in(AST), _in(AST), _in(UINT64)))
+		def_API('Z3_set_term', AST, (_in(CONTEXT), _in(AST), _in(AST), _in(UINT64), _in(BOOL)))
 	*/
-	Z3_ast Z3_API Z3_set_term(Z3_context c, Z3_ast cur_ast, Z3_ast new_term, uint64_t path);
+	Z3_ast Z3_API Z3_set_term(Z3_context c, Z3_ast cur_ast, Z3_ast new_term, uint64_t path, bool remove);
 
     /**
        \brief Substitute every occurrence of \ccode{from[i]} in \c a with \ccode{to[i]}, for \c i smaller than \c num_exprs.
