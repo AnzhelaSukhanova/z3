@@ -963,29 +963,38 @@ extern "C" {
 		expr* result;
 		expr* cur_expr = to_expr(cur_ast);
 		ast_manager& m = mk_c(c)->m();
+        unsigned target_ind = path[cur_depth];
 		if (path[cur_depth] == -1)
-			return new_term;
+        {
+            if (remove)
+                return nullptr;
+            return new_term;
+        }
 		if (is_app(cur_expr))
 		{
 			app *cur_app = to_app(cur_expr);
-			unsigned target_ind = path[cur_depth];
 			expr *child = cur_app->get_arg(target_ind);
 			unsigned children_num = cur_app->get_num_args();
             if (path[cur_depth + 1] == -1 and remove)
                 --children_num;
 			expr *children[children_num];
+            int j = -1;
 			for (int i = 0; i < children_num; i++)
 			{
+                j = j < i? i: i + 1;
 				if (i==target_ind)
-                    if (remove)
+                {
+                    child = set_term(c, child, new_term, ++cur_depth, path, remove);
+                    if (child != nullptr)
+                        children[i] = child;
+                    else
                     {
                         target_ind = -1;
                         --i;
                     }
-                    else
-					    children[i] = set_term(c, child, new_term, ++cur_depth, path, remove);
+                }
 				else
-					children[i] = cur_app->get_arg(i);
+					children[i] = cur_app->get_arg(j);
 			}
 			result = m.mk_app(cur_app->get_decl(), children_num, children);
 		}
