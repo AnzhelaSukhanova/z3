@@ -923,9 +923,9 @@ extern "C" {
 					(remove || is_app_of(cur_app, fid, decl_kind)))
 				{
 					result = cur_expr;
-					if (depth == 0)
+                    depth--;
+					if (depth < 0)
 						break;
-					depth--;
 				}
 				for (int i = 0; i < cur_app->get_num_args(); i++)
 				{
@@ -939,9 +939,9 @@ extern "C" {
 				if (search_quantifier)
 				{
 					result = cur_expr;
-					if (depth == 0)
+                    depth--;
+					if (depth < 0)
 						break;
-					depth--;
 				}
 				expr* body = cur_q->get_expr();
 				loc_info = {cur_depth, 0};
@@ -951,6 +951,8 @@ extern "C" {
 				continue;
 		}
 		cur_path->setx(cur_depth, -1, 0);
+         if (depth >= 0)
+             result = nullptr;
 		// std::cout << mk_pp(result, mk_c(c)->m()) << std::endl;
         Z3_ast z3_ast_result = result != nullptr? of_expr(result) : Z3_mk_false(c);
 		RETURN_Z3(z3_ast_result);
