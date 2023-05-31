@@ -922,7 +922,7 @@ extern "C" {
 				{
 					result = cur_expr;
                     depth--;
-					if (depth < 0)
+					if (depth == 0)
 						break;
 				}
 				for (int i = 0; i < cur_app->get_num_args(); i++)
@@ -938,7 +938,7 @@ extern "C" {
 				{
 					result = cur_expr;
                     depth--;
-					if (depth < 0)
+					if (depth == 0)
 						break;
 				}
 				expr* body = cur_q->get_expr();
@@ -949,8 +949,8 @@ extern "C" {
 				continue;
 		}
 		cur_path->setx(cur_depth, -1, 0);
-         if (depth >= 0)
-             result = nullptr;
+        if (depth > 0)
+            result = nullptr;
 		// std::cout << mk_pp(result, mk_c(c)->m()) << std::endl;
         Z3_ast z3_ast_result = result != nullptr? of_expr(result) : Z3_mk_false(c);
 		RETURN_Z3(z3_ast_result);
